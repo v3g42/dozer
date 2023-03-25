@@ -2330,6 +2330,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "log",
+ "openai-api-rs",
  "ordered-float 3.4.0",
  "parking_lot",
  "prettytable-rs",
@@ -4161,6 +4162,17 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
+name = "openai-api-rs"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3974b221708d87479927edf9b8c023f1d6f939cab877ed09e5fe5c3269f642e4"
+dependencies = [
+ "reqwest",
+ "serde",
+ "tokio",
+]
 
 [[package]]
 name = "openapiv3"

@@ -6,6 +6,7 @@ pub mod helper;
 pub mod ingestion_types;
 pub mod models;
 pub mod node;
+
 mod tests;
 pub mod types;
 
@@ -15,6 +16,8 @@ pub mod arrow_types;
 pub mod grpc_types;
 
 pub use helper::json_value_to_field;
+
+pub use openai_api_rs;
 
 // Re-exports
 pub use arrow;
