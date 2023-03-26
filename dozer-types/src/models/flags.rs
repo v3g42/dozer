@@ -1,5 +1,6 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Message)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Message, JsonSchema)]
 pub struct Flags {
     /// dynamic grpc enabled; Default: true
     #[prost(bool, tag = "1", default = true)]

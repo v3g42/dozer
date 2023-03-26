@@ -1,10 +1,11 @@
+use schemars::JsonSchema;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 
 use serde_yaml::Value;
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, JsonSchema)]
 pub struct ApiIndex {
     #[prost(string, repeated, tag = "1")]
     pub primary_key: Vec<String>,
@@ -159,7 +160,7 @@ impl<'de> Deserialize<'de> for OnDeleteResolutionTypes {
     }
 }
 
-#[derive(Copy, Eq, PartialEq, Clone, ::prost::Message)]
+#[derive(Copy, Eq, PartialEq, Clone, ::prost::Message, JsonSchema)]
 pub struct ConflictResolution {
     #[prost(enumeration = "OnInsertResolutionTypes", tag = "1")]
     pub on_insert: i32,
@@ -210,7 +211,7 @@ impl<'de> Deserialize<'de> for ConflictResolution {
     }
 }
 
-#[derive(Deserialize, Eq, PartialEq, Clone, ::prost::Message)]
+#[derive(Deserialize, Eq, PartialEq, Clone, ::prost::Message, JsonSchema)]
 pub struct ApiEndpoint {
     #[prost(string, tag = "1")]
     pub name: String,

@@ -1,6 +1,7 @@
 use super::api_security::ApiSecurity;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, prost::Message)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, prost::Message, JsonSchema)]
 #[serde(default = "default_api_config")]
 pub struct ApiConfig {
     #[prost(oneof = "ApiSecurity", tags = "1")]
@@ -19,7 +20,7 @@ pub struct ApiConfig {
     #[serde(default = "default_app_grpc")]
     pub app_grpc: Option<GrpcApiOptions>,
 }
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, prost::Message)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, prost::Message, JsonSchema)]
 pub struct RestApiOptions {
     #[prost(uint32, tag = "1")]
     #[serde(default = "default_rest_port")]
@@ -31,7 +32,7 @@ pub struct RestApiOptions {
     #[serde(default = "default_cors")]
     pub cors: bool,
 }
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, prost::Message)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, prost::Message, JsonSchema)]
 pub struct GrpcApiOptions {
     #[prost(uint32, tag = "1")]
     #[serde(default = "default_grpc_port")]

@@ -1,0 +1,1056 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "description": "The configuration for the app",
+  "type": "object",
+  "required": [
+    "app_name",
+    "connections",
+    "endpoints",
+    "sources"
+  ],
+  "properties": {
+    "api": {
+      "description": "Api server config related: port, host, etc",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApiConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "app_buffer_size": {
+      "description": "Pipeline buffer size",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "app_max_map_size": {
+      "description": "Pipeline lmdb max map size",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "app_name": {
+      "description": "name of the app",
+      "type": "string"
+    },
+    "cache_max_map_size": {
+      "description": "Cache lmdb max map size",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "commit_size": {
+      "description": "Commit size",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "commit_timeout": {
+      "description": "Commit timeout",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "connections": {
+      "description": "connections to databases: Eg: Postgres, Snowflake, etc",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Connection"
+      }
+    },
+    "endpoints": {
+      "description": "api endpoints to expose",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ApiEndpoint"
+      }
+    },
+    "flags": {
+      "description": "flags to enable/disable features",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Flags"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "home_dir": {
+      "description": "directory for all process; Default: ~/.dozer",
+      "default": "./.dozer",
+      "type": "string"
+    },
+    "sources": {
+      "description": "sources to ingest data related to particular connection",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Source"
+      }
+    },
+    "sql": {
+      "description": "transformations to apply to source data in SQL format as multiple queries",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "telemetry": {
+      "description": "Instrument using Dozer",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/TelemetryConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "ApiConfig": {
+      "type": "object",
+      "properties": {
+        "api_security": {
+          "description": "The security configuration for the API; Default: None",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ApiSecurity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "app_grpc": {
+          "default": {
+            "cors": false,
+            "host": "0.0.0.0",
+            "port": 50053,
+            "web": false
+          },
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GrpcApiOptions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "grpc": {
+          "default": {
+            "cors": true,
+            "host": "0.0.0.0",
+            "port": 50051,
+            "web": true
+          },
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GrpcApiOptions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rest": {
+          "default": {
+            "cors": true,
+            "host": "0.0.0.0",
+            "port": 8080
+          },
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RestApiOptions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ApiEndpoint": {
+      "type": "object",
+      "required": [
+        "name",
+        "path",
+        "table_name"
+      ],
+      "properties": {
+        "conflict_resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ConflictResolution"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ApiIndex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "description": "path of endpoint - e.g: /stocks",
+          "type": "string"
+        },
+        "table_name": {
+          "description": "name of the table in source database; Type: String",
+          "type": "string"
+        }
+      }
+    },
+    "ApiIndex": {
+      "type": "object",
+      "required": [
+        "primary_key"
+      ],
+      "properties": {
+        "primary_key": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ApiSecurity": {
+      "description": "The security model option for the API",
+      "oneOf": [
+        {
+          "description": "Initialize with a JWT_SECRET",
+          "type": "object",
+          "required": [
+            "Jwt"
+          ],
+          "properties": {
+            "Jwt": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ConflictResolution": {
+      "type": "object",
+      "required": [
+        "on_delete",
+        "on_insert",
+        "on_update"
+      ],
+      "properties": {
+        "on_delete": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "on_insert": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "on_update": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "Connection": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "config": {
+          "description": "authentication config - depends on db_type",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ConnectionConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "ConnectionConfig": {
+      "oneOf": [
+        {
+          "description": "In yaml, present as tag: `!Postgres`",
+          "type": "object",
+          "required": [
+            "Postgres"
+          ],
+          "properties": {
+            "Postgres": {
+              "$ref": "#/definitions/PostgresConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag: `!Ethereum`",
+          "type": "object",
+          "required": [
+            "Ethereum"
+          ],
+          "properties": {
+            "Ethereum": {
+              "$ref": "#/definitions/EthConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag: `!Grpc`",
+          "type": "object",
+          "required": [
+            "Grpc"
+          ],
+          "properties": {
+            "Grpc": {
+              "$ref": "#/definitions/GrpcConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag: `!Snowflake`",
+          "type": "object",
+          "required": [
+            "Snowflake"
+          ],
+          "properties": {
+            "Snowflake": {
+              "$ref": "#/definitions/SnowflakeConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag: `!Kafka`",
+          "type": "object",
+          "required": [
+            "Kafka"
+          ],
+          "properties": {
+            "Kafka": {
+              "$ref": "#/definitions/KafkaConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag: `!ObjectStore`",
+          "type": "object",
+          "required": [
+            "S3Storage"
+          ],
+          "properties": {
+            "S3Storage": {
+              "$ref": "#/definitions/S3Storage"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag: `!ObjectStore`",
+          "type": "object",
+          "required": [
+            "LocalStorage"
+          ],
+          "properties": {
+            "LocalStorage": {
+              "$ref": "#/definitions/LocalStorage"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In yaml, present as tag\" `!DeltaLake`",
+          "type": "object",
+          "required": [
+            "DeltaLake"
+          ],
+          "properties": {
+            "DeltaLake": {
+              "$ref": "#/definitions/DeltaLakeConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "DeltaLakeConfig": {
+      "type": "object",
+      "required": [
+        "tables"
+      ],
+      "properties": {
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeltaTable"
+          }
+        }
+      }
+    },
+    "DeltaTable": {
+      "type": "object",
+      "required": [
+        "name",
+        "path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "DozerTelemetryConfig": {
+      "type": "object",
+      "properties": {
+        "adapter": {
+          "default": "arrow",
+          "type": "string"
+        },
+        "endpoint": {
+          "default": "0.0.0.0:7006",
+          "type": "string"
+        },
+        "sample_percent": {
+          "default": 10,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "EthConfig": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EthProviderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "EthContract": {
+      "type": "object",
+      "required": [
+        "abi",
+        "address",
+        "name"
+      ],
+      "properties": {
+        "abi": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "EthFilter": {
+      "type": "object",
+      "properties": {
+        "addresses": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "from_block": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "to_block": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "topics": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "EthLogConfig": {
+      "type": "object",
+      "required": [
+        "wss_url"
+      ],
+      "properties": {
+        "contracts": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EthContract"
+          }
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EthFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wss_url": {
+          "type": "string"
+        }
+      }
+    },
+    "EthProviderConfig": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Log"
+          ],
+          "properties": {
+            "Log": {
+              "$ref": "#/definitions/EthLogConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Trace"
+          ],
+          "properties": {
+            "Trace": {
+              "$ref": "#/definitions/EthTraceConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "EthTraceConfig": {
+      "type": "object",
+      "required": [
+        "from_block",
+        "https_url"
+      ],
+      "properties": {
+        "batch_size": {
+          "default": 3,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "from_block": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "https_url": {
+          "type": "string"
+        },
+        "to_block": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
+    "Flags": {
+      "type": "object",
+      "properties": {
+        "authenticate_server_reflection": {
+          "description": "require authentication to access grpc server reflection service if true.; Default: false",
+          "default": false,
+          "type": "boolean"
+        },
+        "dynamic": {
+          "description": "dynamic grpc enabled; Default: true",
+          "default": true,
+          "type": "boolean"
+        },
+        "grpc_web": {
+          "description": "http1 + web support for grpc. This is required for browser clients.; Default: true",
+          "default": true,
+          "type": "boolean"
+        },
+        "push_events": {
+          "description": "push events enabled. Currently unstable.; Default: false",
+          "default": false,
+          "type": "boolean"
+        }
+      }
+    },
+    "GrpcApiOptions": {
+      "type": "object",
+      "properties": {
+        "cors": {
+          "default": true,
+          "type": "boolean"
+        },
+        "host": {
+          "default": "0.0.0.0",
+          "type": "string"
+        },
+        "port": {
+          "default": 50051,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "web": {
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "GrpcConfig": {
+      "type": "object",
+      "properties": {
+        "adapter": {
+          "default": "default",
+          "type": "string"
+        },
+        "host": {
+          "default": "0.0.0.0",
+          "type": "string"
+        },
+        "port": {
+          "default": 8085,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "schemas": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GrpcConfigSchemas"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "GrpcConfigSchemas": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Inline"
+          ],
+          "properties": {
+            "Inline": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Path"
+          ],
+          "properties": {
+            "Path": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "KafkaConfig": {
+      "type": "object",
+      "required": [
+        "broker"
+      ],
+      "properties": {
+        "broker": {
+          "type": "string"
+        },
+        "schema_registry_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "LocalDetails": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "LocalStorage": {
+      "type": "object",
+      "required": [
+        "tables"
+      ],
+      "properties": {
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LocalDetails"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Table"
+          }
+        }
+      }
+    },
+    "OpenTelemetryConfig": {
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "default": "127.0.0.1:6831",
+          "type": "string"
+        }
+      }
+    },
+    "PostgresConfig": {
+      "type": "object",
+      "required": [
+        "database",
+        "host",
+        "password",
+        "port",
+        "user"
+      ],
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "RealTimeConfig": {
+      "type": "object"
+    },
+    "RefreshConfig": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "RealTime"
+          ],
+          "properties": {
+            "RealTime": {
+              "$ref": "#/definitions/RealTimeConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RestApiOptions": {
+      "type": "object",
+      "properties": {
+        "cors": {
+          "default": true,
+          "type": "boolean"
+        },
+        "host": {
+          "default": "0.0.0.0",
+          "type": "string"
+        },
+        "port": {
+          "default": 8080,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "S3Details": {
+      "type": "object",
+      "required": [
+        "access_key_id",
+        "bucket_name",
+        "region",
+        "secret_access_key"
+      ],
+      "properties": {
+        "access_key_id": {
+          "type": "string"
+        },
+        "bucket_name": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "secret_access_key": {
+          "type": "string"
+        }
+      }
+    },
+    "S3Storage": {
+      "type": "object",
+      "required": [
+        "tables"
+      ],
+      "properties": {
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/S3Details"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Table"
+          }
+        }
+      }
+    },
+    "SnowflakeConfig": {
+      "type": "object",
+      "required": [
+        "database",
+        "password",
+        "port",
+        "schema",
+        "server",
+        "user",
+        "warehouse"
+      ],
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "driver": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "password": {
+          "type": "string"
+        },
+        "port": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        },
+        "server": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "warehouse": {
+          "type": "string"
+        }
+      }
+    },
+    "Source": {
+      "type": "object",
+      "required": [
+        "columns",
+        "name",
+        "table_name"
+      ],
+      "properties": {
+        "columns": {
+          "description": "list of columns gonna be used in the source table; Type: String[]",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "connection": {
+          "description": "reference to pre-defined connection name - syntax: `!Ref <connection_name>`; Type: `Ref!` tag",
+          "default": null,
+          "readOnly": true,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Connection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "description": "name of the source - to distinguish between multiple sources; Type: String",
+          "type": "string"
+        },
+        "refresh_config": {
+          "description": "setting for how to refresh the data; Default: RealTime",
+          "default": {
+            "RealTime": {}
+          },
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RefreshConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema": {
+          "description": "name of schema source database; Type: String",
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "table_name": {
+          "description": "name of the table in source database; Type: String",
+          "type": "string"
+        }
+      }
+    },
+    "Table": {
+      "type": "object",
+      "required": [
+        "extension",
+        "file_type",
+        "name",
+        "prefix"
+      ],
+      "properties": {
+        "extension": {
+          "type": "string"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      }
+    },
+    "TelemetryConfig": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Dozer"
+          ],
+          "properties": {
+            "Dozer": {
+              "$ref": "#/definitions/DozerTelemetryConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "OpenTelemetry"
+          ],
+          "properties": {
+            "OpenTelemetry": {
+              "$ref": "#/definitions/OpenTelemetryConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

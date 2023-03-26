@@ -1,11 +1,12 @@
 use crate::ingestion_types::{
     DeltaLakeConfig, EthConfig, GrpcConfig, KafkaConfig, LocalStorage, S3Storage, SnowflakeConfig,
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use prettytable::Table;
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct Connection {
     #[prost(oneof = "ConnectionConfig", tags = "1,2,3,4,5,6,7,8")]
     /// authentication config - depends on db_type
@@ -14,7 +15,7 @@ pub struct Connection {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct PostgresConfig {
     #[prost(string, tag = "1")]
     pub user: String,
@@ -40,7 +41,8 @@ impl PostgresConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, Hash, JsonSchema)]
+
 pub enum ConnectionConfig {
     #[prost(message, tag = "1")]
     /// In yaml, present as tag: `!Postgres`

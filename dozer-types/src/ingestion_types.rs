@@ -1,4 +1,5 @@
 use prettytable::Table as PrettyTable;
+use schemars::JsonSchema;
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
@@ -51,7 +52,7 @@ pub trait IngestorForwarder: Send + Sync + Debug {
     fn forward(&self, msg: IngestionMessage) -> Result<(), IngestorError>;
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct EthFilter {
     // Starting block
     #[prost(uint64, optional, tag = "1")]
@@ -66,7 +67,7 @@ pub struct EthFilter {
     pub topics: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct GrpcConfig {
     #[prost(string, tag = "1", default = "0.0.0.0")]
     #[serde(default = "default_ingest_host")]
@@ -93,7 +94,7 @@ fn default_ingest_port() -> u32 {
     8085
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, Hash, JsonSchema)]
 pub enum GrpcConfigSchemas {
     #[prost(string, tag = "3")]
     Inline(String),
@@ -101,13 +102,13 @@ pub enum GrpcConfigSchemas {
     Path(String),
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct EthConfig {
     #[prost(oneof = "EthProviderConfig", tags = "2,3")]
     pub provider: Option<EthProviderConfig>,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, Hash, JsonSchema)]
 pub enum EthProviderConfig {
     #[prost(message, tag = "2")]
     Log(EthLogConfig),
@@ -115,7 +116,7 @@ pub enum EthProviderConfig {
     Trace(EthTraceConfig),
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct EthLogConfig {
     #[prost(string, tag = "1")]
     pub wss_url: String,
@@ -126,7 +127,7 @@ pub struct EthLogConfig {
     pub contracts: Vec<EthContract>,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct EthTraceConfig {
     #[prost(string, tag = "1")]
     pub https_url: String,
@@ -170,7 +171,7 @@ impl EthConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct EthContract {
     #[prost(string, tag = "1")]
     pub name: String,
@@ -180,7 +181,7 @@ pub struct EthContract {
     pub abi: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct KafkaConfig {
     #[prost(string, tag = "1")]
     pub broker: String,
@@ -202,7 +203,7 @@ impl KafkaConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct SnowflakeConfig {
     #[prost(string, tag = "1")]
     pub server: String,
@@ -237,7 +238,7 @@ impl SnowflakeConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct DataFusionConfig {
     #[prost(string, tag = "1")]
     pub access_key_id: String,
@@ -260,7 +261,7 @@ impl DataFusionConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct Table {
     #[prost(string, tag = "1")]
     pub name: String,
@@ -272,7 +273,7 @@ pub struct Table {
     pub extension: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct S3Details {
     #[prost(string, tag = "1")]
     pub access_key_id: String,
@@ -284,7 +285,7 @@ pub struct S3Details {
     pub bucket_name: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct S3Storage {
     #[prost(message, optional, tag = "1")]
     pub details: Option<S3Details>,
@@ -308,13 +309,13 @@ impl S3Storage {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct LocalDetails {
     #[prost(string, tag = "1")]
     pub path: String,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct LocalStorage {
     #[prost(message, optional, tag = "1")]
     pub details: Option<LocalDetails>,
@@ -330,7 +331,7 @@ impl LocalStorage {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct DeltaTable {
     #[prost(string, tag = "1")]
     pub path: String,
@@ -344,7 +345,7 @@ impl DeltaTable {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, Hash, JsonSchema)]
 pub struct DeltaLakeConfig {
     #[prost(message, repeated, tag = "1")]
     pub tables: Vec<DeltaTable>,

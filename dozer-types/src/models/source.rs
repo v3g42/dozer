@@ -1,7 +1,8 @@
 use super::connection::Connection;
+use schemars::JsonSchema;
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
-#[derive(Deserialize, Eq, PartialEq, Clone, ::prost::Message)]
+#[derive(Deserialize, Eq, PartialEq, Clone, ::prost::Message, JsonSchema)]
 pub struct Source {
     #[prost(string, tag = "1")]
     /// name of the source - to distinguish between multiple sources; Type: String
@@ -75,7 +76,7 @@ pub enum TransactionalHistoryConfig {
         retention_period: u32,
     },
 }
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Oneof, JsonSchema)]
 pub enum RefreshConfig {
     // Hour { minute: u32 },
     // Day { time: String },
@@ -88,5 +89,5 @@ impl Default for RefreshConfig {
         RefreshConfig::RealTime(RealTimeConfig {})
     }
 }
-#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Clone, ::prost::Message, JsonSchema)]
 pub struct RealTimeConfig {}

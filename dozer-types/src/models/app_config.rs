@@ -3,12 +3,14 @@ use super::{
     source::Source, telemetry::TelemetryConfig,
 };
 use crate::{constants::DEFAULT_HOME_DIR, models::api_config::default_api_config};
+use schemars::JsonSchema;
 use serde::{
     de::{self, IgnoredAny, Visitor},
     Deserialize, Deserializer, Serialize,
 };
 
-#[derive(Serialize, PartialEq, Eq, Clone, prost::Message)]
+#[derive(Serialize, PartialEq, Eq, Clone, prost::Message, JsonSchema)]
+#[serde(deny_unknown_fields)]
 /// The configuration for the app
 pub struct Config {
     #[prost(string, tag = "2")]

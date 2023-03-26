@@ -1,0 +1,49 @@
+app_name: local
+connections:
+  - config: !LocalStorage
+      details:
+        path: /Users/vivek/projects/dozer/rust/dozer-samples-internal/taxi-objectstore
+      tables:
+        - !Table
+          name: trips
+          prefix: data
+          file_type: parquet
+          extension: .parquet
+    name: ny_taxi
+  - config: !Snowflake
+      server: "{{SN_SERVER}}"
+      port: 443
+      user: "{{SN_USER}}"
+      password: "{{SN_PASSWORD}}"
+      database: "{{SN_DATABASE}}"
+      schema: PUBLIC
+      warehouse: "{{SN_WAREHOUSE}}"
+      driver: "SnowflakeDSIIDriver"
+    name: sn_data
+  - config: !Ethereum
+      provider: !Trace
+        https_url: "{{ETH_HTTPS_URL}}"
+        from_block: 1000000
+        to_block:
+        batch_size: 3
+    name: eth_conn1
+  - config: !Ethereum
+      provider: !Log
+        filter:
+          from_block:
+          to_block:
+          addresses:
+          topics:
+        wss_url: "{{ETH_WSS_URL}}"
+    name: eth_conn2
+
+sources:
+  - name: trips
+    table_name: trips
+    connection: !Ref ny_taxi
+    columns:
+
+endpoints:
+  - name: trips
+    path: /trips
+    table_name: trips

@@ -1,0 +1,546 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConnectionConfig",
+  "oneOf": [
+    {
+      "description": "In yaml, present as tag: `!Postgres`",
+      "type": "object",
+      "required": [
+        "Postgres"
+      ],
+      "properties": {
+        "Postgres": {
+          "$ref": "#/definitions/PostgresConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag: `!Ethereum`",
+      "type": "object",
+      "required": [
+        "Ethereum"
+      ],
+      "properties": {
+        "Ethereum": {
+          "$ref": "#/definitions/EthConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag: `!Grpc`",
+      "type": "object",
+      "required": [
+        "Grpc"
+      ],
+      "properties": {
+        "Grpc": {
+          "$ref": "#/definitions/GrpcConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag: `!Snowflake`",
+      "type": "object",
+      "required": [
+        "Snowflake"
+      ],
+      "properties": {
+        "Snowflake": {
+          "$ref": "#/definitions/SnowflakeConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag: `!Kafka`",
+      "type": "object",
+      "required": [
+        "Kafka"
+      ],
+      "properties": {
+        "Kafka": {
+          "$ref": "#/definitions/KafkaConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag: `!ObjectStore`",
+      "type": "object",
+      "required": [
+        "S3Storage"
+      ],
+      "properties": {
+        "S3Storage": {
+          "$ref": "#/definitions/S3Storage"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag: `!ObjectStore`",
+      "type": "object",
+      "required": [
+        "LocalStorage"
+      ],
+      "properties": {
+        "LocalStorage": {
+          "$ref": "#/definitions/LocalStorage"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "In yaml, present as tag\" `!DeltaLake`",
+      "type": "object",
+      "required": [
+        "DeltaLake"
+      ],
+      "properties": {
+        "DeltaLake": {
+          "$ref": "#/definitions/DeltaLakeConfig"
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "DeltaLakeConfig": {
+      "type": "object",
+      "required": [
+        "tables"
+      ],
+      "properties": {
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeltaTable"
+          }
+        }
+      }
+    },
+    "DeltaTable": {
+      "type": "object",
+      "required": [
+        "name",
+        "path"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "EthConfig": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EthProviderConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "EthContract": {
+      "type": "object",
+      "required": [
+        "abi",
+        "address",
+        "name"
+      ],
+      "properties": {
+        "abi": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "EthFilter": {
+      "type": "object",
+      "properties": {
+        "addresses": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "from_block": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "to_block": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "topics": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "EthLogConfig": {
+      "type": "object",
+      "required": [
+        "wss_url"
+      ],
+      "properties": {
+        "contracts": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EthContract"
+          }
+        },
+        "filter": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/EthFilter"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wss_url": {
+          "type": "string"
+        }
+      }
+    },
+    "EthProviderConfig": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Log"
+          ],
+          "properties": {
+            "Log": {
+              "$ref": "#/definitions/EthLogConfig"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Trace"
+          ],
+          "properties": {
+            "Trace": {
+              "$ref": "#/definitions/EthTraceConfig"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "EthTraceConfig": {
+      "type": "object",
+      "required": [
+        "from_block",
+        "https_url"
+      ],
+      "properties": {
+        "batch_size": {
+          "default": 3,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "from_block": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "https_url": {
+          "type": "string"
+        },
+        "to_block": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
+    "GrpcConfig": {
+      "type": "object",
+      "properties": {
+        "adapter": {
+          "default": "default",
+          "type": "string"
+        },
+        "host": {
+          "default": "0.0.0.0",
+          "type": "string"
+        },
+        "port": {
+          "default": 8085,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "schemas": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/GrpcConfigSchemas"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "GrpcConfigSchemas": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Inline"
+          ],
+          "properties": {
+            "Inline": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Path"
+          ],
+          "properties": {
+            "Path": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "KafkaConfig": {
+      "type": "object",
+      "required": [
+        "broker"
+      ],
+      "properties": {
+        "broker": {
+          "type": "string"
+        },
+        "schema_registry_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "LocalDetails": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      }
+    },
+    "LocalStorage": {
+      "type": "object",
+      "required": [
+        "tables"
+      ],
+      "properties": {
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LocalDetails"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Table"
+          }
+        }
+      }
+    },
+    "PostgresConfig": {
+      "type": "object",
+      "required": [
+        "database",
+        "host",
+        "password",
+        "port",
+        "user"
+      ],
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "user": {
+          "type": "string"
+        }
+      }
+    },
+    "S3Details": {
+      "type": "object",
+      "required": [
+        "access_key_id",
+        "bucket_name",
+        "region",
+        "secret_access_key"
+      ],
+      "properties": {
+        "access_key_id": {
+          "type": "string"
+        },
+        "bucket_name": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "secret_access_key": {
+          "type": "string"
+        }
+      }
+    },
+    "S3Storage": {
+      "type": "object",
+      "required": [
+        "tables"
+      ],
+      "properties": {
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/S3Details"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Table"
+          }
+        }
+      }
+    },
+    "SnowflakeConfig": {
+      "type": "object",
+      "required": [
+        "database",
+        "password",
+        "port",
+        "schema",
+        "server",
+        "user",
+        "warehouse"
+      ],
+      "properties": {
+        "database": {
+          "type": "string"
+        },
+        "driver": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "password": {
+          "type": "string"
+        },
+        "port": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        },
+        "server": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "warehouse": {
+          "type": "string"
+        }
+      }
+    },
+    "Table": {
+      "type": "object",
+      "required": [
+        "extension",
+        "file_type",
+        "name",
+        "prefix"
+      ],
+      "properties": {
+        "extension": {
+          "type": "string"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

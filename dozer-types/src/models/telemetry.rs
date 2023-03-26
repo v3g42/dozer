@@ -1,5 +1,6 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Oneof)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Oneof, JsonSchema)]
 
 pub enum TelemetryConfig {
     #[prost(message, tag = "1")]
@@ -8,7 +9,7 @@ pub enum TelemetryConfig {
     OpenTelemetry(OpenTelemetryConfig),
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Message)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Message, JsonSchema)]
 
 pub struct DozerTelemetryConfig {
     #[prost(string, tag = "1", default = "0.0.0.0:7006")]
@@ -22,7 +23,7 @@ pub struct DozerTelemetryConfig {
     pub sample_percent: u32,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Message)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, prost::Message, JsonSchema)]
 
 pub struct OpenTelemetryConfig {
     #[prost(string, tag = "1", default = "127.0.0.1:6831")]

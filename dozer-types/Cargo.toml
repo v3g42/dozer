@@ -33,6 +33,12 @@ prost = "0.11.8"
 arrow = { version = "33.0.0"}
 arrow-schema = { version = "33.0.0", features=["serde"]}
 openai-api-rs = "0.1.5"
+schemars = "0.8.12"
+
+
+[dev-dependencies]
+schemars = "0.8.12"
+
 
 [build-dependencies]
 tonic-build = "0.8.2"
@@ -40,3 +46,7 @@ tonic-build = "0.8.2"
 [features]
 python = ["dep:pyo3"]
 snowflake=[]
+
+[[bin]]
+name = "generate-json-schema"
+path = "json_schema/generate.rs"
