@@ -1,3 +1,4 @@
+use super::connection_service::ConnectionService;
 use super::constants;
 use super::graph;
 
@@ -61,6 +62,7 @@ impl AppService {
             Ok(AppResponse {
                 id: app.id,
                 app: Some(c),
+                config: app.config.clone(),
             })
         } else {
             Err(ErrorResponse {
@@ -73,6 +75,8 @@ impl AppService {
         let context = wrapped_statement_to_pipeline(&input.sql).map_err(|op| ErrorResponse {
             message: op.to_string(),
         })?;
+
+        let tables_map = ConnectionService::get_tables_map(self.db_pool.clone()).unwrap();
 
         Ok(ParseResponse {
             used_sources: context.used_sources.clone(),
@@ -182,6 +186,7 @@ impl AppService {
         Ok(AppResponse {
             id: result.id,
             app: Some(c),
+            config: result.config.clone(),
         })
     }
 
@@ -216,6 +221,7 @@ impl AppService {
                 AppResponse {
                     id: result.id.clone(),
                     app: Some(c),
+                    config: result.config.clone(),
                 }
             })
             .collect();
@@ -264,6 +270,7 @@ impl AppService {
         Ok(AppResponse {
             id: app.id,
             app: Some(c),
+            config: app.config.clone(),
         })
     }
 

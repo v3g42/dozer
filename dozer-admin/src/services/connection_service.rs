@@ -3,14 +3,14 @@ use crate::db::{
     pool::DbPool,
     schema::connections::dsl::*,
 };
-use dozer_orchestrator::{get_connector, ConnectorError};
+use dozer_orchestrator::{get_connector, ConnectorError, TableInfo};
 use dozer_types::grpc_types::admin::{
     ConnectionRequest, ConnectionResponse, ErrorResponse, GetAllConnectionRequest,
     GetAllConnectionResponse, GetTablesRequest, GetTablesResponse, Pagination,
     UpdateConnectionRequest, ValidateConnectionResponse,
 };
 use dozer_types::{log::error, models::connection::Connection};
-use std::thread;
+use std::{collections::HashMap, thread};
 
 use diesel::{insert_into, QueryDsl, RunQueryDsl};
 
@@ -23,6 +23,34 @@ impl ConnectionService {
     pub fn new(db_pool: DbPool) -> Self {
         Self { db_pool }
     }
+
+    pub fn get_tables_map(
+        db_pool: DbPool,
+    ) -> Result<HashMap<String, (String, TableInfo)>, ErrorResponse> {
+        let mut db = db_pool.clone().get().map_err(|err| ErrorResponse {
+            message: err.to_string(),
+        })?;
+        let conns: Vec<DbConnection> = connections.load(&mut db).map_err(|err| {
+            error!("Error fetching schemas: {}", err);
+            ErrorResponse {
+                message: err.to_string(),
+            }
+        })?;
+        let mut tables_map = HashMap::new();
+        for conn in conns {
+            let conn_name = conn.name.clone();
+            let connection = Connection::try_from(conn).map_err(|err| ErrorResponse {
+                message: err.to_string(),
+            })?;
+            let tables = Self::_get_tables(connection)?;
+
+            for table in tables {
+                tables_map.insert(table.name.clone(), (conn_name.clone(), table));
+            }
+        }
+
+        Ok(tables_map)
+    }
 }
 
 fn get_tables(
@@ -33,8 +61,7 @@ fn get_tables(
 }
 
 impl ConnectionService {
-    async fn _get_tables(
-        &self,
+    fn _get_tables(
         connection: Connection,
     ) -> Result<Vec<dozer_orchestrator::TableInfo>, ErrorResponse> {
         let res = thread::spawn(|| get_tables(connection).map_err(|err| err.to_string()))
@@ -99,7 +126,7 @@ impl ConnectionService {
             message: err.to_string(),
         })?;
 
-        let tables = self._get_tables(connection).await?;
+        let tables = Self::_get_tables(connection)?;
         Ok(GetTablesResponse {
             connection_id: input.connection_id,
             tables: tables.iter().map(|t| convert_table(t.clone())).collect(),
