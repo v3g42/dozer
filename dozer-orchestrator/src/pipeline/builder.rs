@@ -5,7 +5,7 @@ use dozer_api::grpc::internal::internal_pipeline_server::PipelineEventSenders;
 use dozer_cache::cache::{CacheManagerOptions, LmdbCacheManager};
 use dozer_core::app::AppPipeline;
 use dozer_core::executor::DagExecutor;
-use dozer_core::DEFAULT_PORT_HANDLE;
+use dozer_core::{Dag, DEFAULT_PORT_HANDLE};
 use dozer_ingestion::connectors::{get_connector, get_connector_info_table};
 use dozer_sql::pipeline::builder::{OutputNodeInfo, QueryContext, SchemaSQLContext};
 
@@ -38,6 +38,11 @@ pub struct CalculatedSources {
     pub original_sources: Vec<String>,
     pub transformed_sources: Vec<String>,
     pub query_context: Option<QueryContext>,
+}
+
+pub struct PipelineBuilderResponse {
+    pub dag: Dag<SchemaSQLContext>,
+    pub calculated_sources: CalculatedSources,
 }
 pub struct PipelineBuilder<'a> {
     connections: &'a [Connection],
@@ -186,7 +191,7 @@ impl<'a> PipelineBuilder<'a> {
         notifier: Option<PipelineEventSenders>,
         cache_manager_options: CacheManagerOptions,
         settings: CacheSinkSettings,
-    ) -> Result<dozer_core::Dag<SchemaSQLContext>, OrchestrationError> {
+    ) -> Result<PipelineBuilderResponse, OrchestrationError> {
         let calculated_sources = self.calculate_sources()?;
 
         debug!("Used Sources: {:?}", calculated_sources.original_sources);
@@ -306,6 +311,9 @@ impl<'a> PipelineBuilder<'a> {
                 OrchestrationError::PipelineValidationError
             })?;
 
-        Ok(dag)
+        Ok(PipelineBuilderResponse {
+            dag,
+            calculated_sources,
+        })
     }
 }

@@ -1,7 +1,8 @@
-use super::connection_service::ConnectionService;
 use super::constants;
 use super::graph;
 
+use crate::db::connection::DbConnection;
+use crate::db::schema::connections::dsl::connections;
 use crate::db::{
     app::{Application, NewApplication},
     pool::DbPool,
@@ -9,9 +10,12 @@ use crate::db::{
 };
 use diesel::prelude::*;
 use diesel::{insert_into, QueryDsl, RunQueryDsl};
+use dozer_orchestrator::pipeline::PipelineBuilder;
 use dozer_orchestrator::simple::SimpleOrchestrator as Dozer;
 use dozer_orchestrator::wrapped_statement_to_pipeline;
 use dozer_orchestrator::Orchestrator;
+use dozer_types::grpc_types::admin::ParsePipelineRequest;
+use dozer_types::grpc_types::admin::ParsePipelineResponse;
 use dozer_types::grpc_types::admin::StopRequest;
 use dozer_types::grpc_types::admin::StopResponse;
 use dozer_types::grpc_types::admin::{
@@ -20,6 +24,8 @@ use dozer_types::grpc_types::admin::{
     Pagination, ParseRequest, ParseResponse, ParseYamlRequest, ParseYamlResponse, StartRequest,
     StartResponse, UpdateAppRequest,
 };
+use dozer_types::log::error;
+use dozer_types::models::connection::Connection;
 use dozer_types::parking_lot::RwLock;
 use dozer_types::serde_yaml;
 use std::collections::HashMap;
@@ -76,8 +82,37 @@ impl AppService {
             message: op.to_string(),
         })?;
 
-        let tables_map = ConnectionService::get_tables_map(self.db_pool.clone()).unwrap();
+        Ok(ParseResponse {
+            used_sources: context.used_sources.clone(),
+            output_tables: context.output_tables_map.keys().cloned().collect(),
+        })
+    }
 
+    pub fn parse_pipeline(
+        &self,
+        input: ParsePipelineRequest,
+    ) -> Result<ParsePipelineResponse, ErrorResponse> {
+        let mut db = self.db_pool.clone().get().map_err(|op| ErrorResponse {
+            message: op.to_string(),
+        })?;
+
+        let db_conns: Vec<DbConnection> = connections.load(&mut db).map_err(|err| {
+            error!("Error fetching connections: {}", err);
+            ErrorResponse {
+                message: err.to_string(),
+            }
+        })?;
+        let mut conns = vec![];
+        for db_conn in db_conns {
+            let connection = Connection::try_from(db_conn).map_err(|err| ErrorResponse {
+                message: err.to_string(),
+            })?;
+
+            conns.push(connection);
+        }
+
+        
+        builder.build(notifier, CacheManagerOptions, settings)
         Ok(ParseResponse {
             used_sources: context.used_sources.clone(),
             output_tables: context.output_tables_map.keys().cloned().collect(),

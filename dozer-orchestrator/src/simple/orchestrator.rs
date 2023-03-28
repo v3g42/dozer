@@ -1,7 +1,7 @@
 use super::executor::Executor;
 use crate::console_helper::get_colored_text;
 use crate::errors::OrchestrationError;
-use crate::pipeline::{CacheSinkSettings, PipelineBuilder};
+use crate::pipeline::{CacheSinkSettings, PipelineBuilder, PipelineBuilderResponse};
 use crate::simple::helper::validate_config;
 use crate::utils::{
     get_api_dir, get_api_security_config, get_app_grpc_config, get_cache_dir,
@@ -49,6 +49,26 @@ pub struct SimpleOrchestrator {
 impl SimpleOrchestrator {
     pub fn new(config: Config) -> Self {
         Self { config }
+    }
+
+    pub fn build_pipeline(&self) -> Result<PipelineBuilderResponse, OrchestrationError> {
+        let pipeline_home_dir = get_pipeline_dir(&self.config);
+        let api_dir = get_api_dir(&self.config);
+
+        let api_security = get_api_security_config(self.config.clone());
+        let flags = get_flags(self.config.clone());
+
+        let settings = CacheSinkSettings::new(api_dir.clone(), flags, api_security);
+
+        let builder = PipelineBuilder::new(
+            &self.config.connections,
+            &self.config.sources,
+            self.config.sql.as_deref(),
+            &self.config.endpoints,
+            &pipeline_home_dir,
+        );
+
+        builder.build(None, get_cache_manager_options(&self.config), settings)
     }
 }
 
@@ -245,14 +265,6 @@ impl Orchestrator for SimpleOrchestrator {
         }
         validate_config(&self.config)?;
 
-        let builder = PipelineBuilder::new(
-            &self.config.connections,
-            &self.config.sources,
-            self.config.sql.as_deref(),
-            &self.config.endpoints,
-            &pipeline_home_dir,
-        );
-
         // Api Path
         if !api_dir.exists() {
             fs::create_dir_all(api_dir.clone()).map_err(|e| InternalError(Box::new(e)))?;
@@ -265,12 +277,10 @@ impl Orchestrator for SimpleOrchestrator {
                 e,
             )
         })?;
-        let api_security = get_api_security_config(self.config.clone());
-        let flags = get_flags(self.config.clone());
-        let settings = CacheSinkSettings::new(api_dir.clone(), flags, api_security);
-        let dag = builder.build(None, get_cache_manager_options(&self.config), settings)?;
+
+        let pipeline_response = self.build_pipeline()?;
         // Populate schemas.
-        DagSchemas::new(dag)?;
+        DagSchemas::new(pipeline_response.dag)?;
 
         let mut resources = Vec::new();
         for e in &self.config.endpoints {

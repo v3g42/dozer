@@ -76,7 +76,7 @@ impl<'a> Executor<'a> {
             self.pipeline_dir,
         );
 
-        let dag = builder.build(notifier, cache_manager_options, settings)?;
+        let pipeline_response = builder.build(notifier, cache_manager_options, settings)?;
         let path = &self.pipeline_dir;
 
         if !path.exists() {
@@ -85,7 +85,7 @@ impl<'a> Executor<'a> {
             ));
         }
 
-        let exec = DagExecutor::new(dag, path.to_path_buf(), executor_options)?;
+        let exec = DagExecutor::new(pipeline_response.dag, path.to_path_buf(), executor_options)?;
 
         Ok(exec)
     }

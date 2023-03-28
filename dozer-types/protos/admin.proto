@@ -1,10 +1,10 @@
 syntax = "proto3";
 package dozer.admin;
 import "admin_types.proto";
-
 service DozerAdmin {
   rpc create_application(CreateAppRequest) returns (AppResponse);
   rpc parse_sql(ParseRequest) returns (ParseResponse);
+  rpc parse_pipeline(ParsePipelineRequest) returns (ParsePipelineResponse);
   rpc parse_yaml(ParseYamlRequest) returns (ParseYamlResponse);
   rpc generate_yaml(GenerateYamlRequest) returns (GenerateYamlResponse);
   rpc generate_graph(GenerateGraphRequest) returns (GenerateGraphResponse);
@@ -35,6 +35,12 @@ message ParseRequest { string sql = 1; }
 message ParseResponse {
   repeated string used_sources = 1;
   repeated string output_tables = 3;
+}
+
+message ParsePipelineRequest { string sql = 1; }
+message ParsePipelineResponse {
+  repeated string used_sources = 1;
+  map<string, TableInfo> transformed_sources = 2;
 }
 
 message GenerateGraphRequest { string config = 1; }
