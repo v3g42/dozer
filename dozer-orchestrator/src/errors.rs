@@ -54,6 +54,8 @@ pub enum OrchestrationError {
     DuplicateTable(String),
     #[error("Configuration Error: {0:?}")]
     ConfigError(String),
+    #[error("Loading Schema failed: {0:?}")]
+    SchemaLoadFailed(#[source] CacheError),
 }
 
 #[derive(Error, Debug)]

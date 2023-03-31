@@ -12,6 +12,7 @@ use crate::{flatten_join_handle, Orchestrator};
 use dozer_api::auth::{Access, Authorizer};
 use dozer_api::generator::protoc::generator::ProtoGenerator;
 use dozer_api::grpc::internal::internal_pipeline_client::InternalPipelineClient;
+use dozer_api::load_schemas;
 use dozer_api::{
     actix_web::dev::ServerHandle,
     grpc::{self, internal::internal_pipeline_server::start_internal_pipeline_server},
@@ -80,6 +81,11 @@ impl Orchestrator for SimpleOrchestrator {
                 future.map_err(OrchestrationError::GrpcServerFailed),
             )));
 
+            let pipeline_path = get_pipeline_dir(&self.config);
+            let schemas = load_schemas(pipeline_path).map_err(|e| {
+                error!("Failed to load schemas: {}", e);
+                OrchestrationError::SchemaLoadFailed(e)
+            })?;
             // Open `RoCacheEndpoint`s.
             let cache_manager = Arc::new(
                 LmdbRwCacheManager::new(get_cache_manager_options(&self.config))
@@ -90,7 +96,16 @@ impl Orchestrator for SimpleOrchestrator {
                 .endpoints
                 .iter()
                 .map(|endpoint| {
-                    RoCacheEndpoint::new(&*cache_manager, endpoint.clone()).map(Arc::new)
+                    let schema = schemas
+                        .get(&endpoint.name)
+                        .expect("schema is expected to exist");
+                    RoCacheEndpoint::new(
+                        &*cache_manager,
+                        schema.clone(),
+                        endpoint.clone(),
+                        pipeline_path,
+                    )
+                    .map(Arc::new)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
 

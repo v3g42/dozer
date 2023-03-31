@@ -25,7 +25,7 @@ pub struct LogSinkSettings {
     pub pipeline_dir: PathBuf,
 }
 
-const SCHEMA_FILE_NAME: &str = "schemas.json";
+pub const SCHEMA_FILE_NAME: &str = "schemas.json";
 
 #[derive(Debug, Clone)]
 pub struct LogSinkFactory {
