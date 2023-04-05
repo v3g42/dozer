@@ -4,7 +4,7 @@ use dozer_types::openai_api_rs::v1::completion::{self, CompletionRequest};
 use dozer_types::openai_api_rs::v1::error::APIError;
 use dozer_types::serde::Deserialize;
 
-const OPENAI_API_KEY: &str = "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";
+const OPENAI_API_KEY: &str = "TEST";
 
 #[derive(Debug, Deserialize)]
 #[serde(crate = "dozer_types::serde")]
