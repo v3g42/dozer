@@ -7,19 +7,9 @@ service DozerCloud {
   rpc create_application(CreateAppRequest) returns (AppResponse);
   rpc update_application(UpdateAppRequest) returns (AppResponse);
   rpc delete_application(DeleteAppRequest) returns (DeleteAppResponse);
-  rpc clone_application(CloneAppRequest) returns (AppResponse);
   rpc list_applications(ListAppRequest) returns (ListAppResponse);
-  rpc list_app_connections(ListAppConnectionRequest) returns (GetAllConnectionResponse);
-  rpc list_app_sources(ListSourceRequest) returns (ListSourceResponse);
-  rpc list_app_endpoints(ListEndpointRequest) returns (ListEndpointResponse);
-
   rpc get_connection(GetConnectionRequest) returns (ConnectionResponse);
-  rpc create_app_connection(AppConnectionRequest) returns (ConnectionResponse);
-  rpc create_source(CreateSourceRequest) returns (SourceResponse);
 
-  rpc parse_sql(ParseRequest) returns (ParseResponse);
-  rpc parse_yaml(ParseYamlRequest) returns (ParseYamlResponse);
-  rpc generate_yaml(GenerateYamlRequest) returns (GenerateYamlResponse);
   rpc get_application(GetAppRequest) returns (AppResponse);
   rpc validate_connection(ConnectionRequest)
       returns (ValidateConnectionResponse);
@@ -39,9 +29,6 @@ service DozerCloud {
   rpc list_deployments(ListDeploymentRequest) returns (ListDeploymentResponse);
 
   rpc list_files(ListFilesRequest) returns (ListFilesResponse);
-  rpc update_files(UpdateFileRequest) returns (UpdateFileResponse);
-  rpc save_files(SaveFilesRequest) returns (SaveFilesResponse);
-  rpc delete_files(DeleteFileRequest) returns (DeleteFileResponse);
 
   rpc create_secret(CreateSecretRequest) returns (CreateSecretResponse);
   rpc update_secret(UpdateSecretRequest) returns (UpdateSecretResponse);
@@ -85,58 +72,10 @@ message DeploymentHealth {
   int32 available = 6;
 }
 
-message AppConnectionRequest {
-  string app_id = 1;
-  oneof input {
-    Connection connection = 2;
-    string connection_yaml = 3;
-  }
-}
-
-message CreateSourceRequest {
-  string app_id = 1;
-  Source source = 2;
-  Connection connection = 3;
-}
-
-message ListEndpointRequest {
-  string app_id = 1;
-  optional uint32 limit = 2;
-  optional uint32 offset = 3;
-}
-
-message ListEndpointResponse {
-    repeated EndpointResponse endpoints = 1;
-    Pagination pagination = 2;
-}
-
-message EndpointResponse {
-  string id = 1;
-  Endpoint endpoint = 2;
-  string yaml_content = 3; 
-}
-
-message ListSourceRequest {
-  string app_id = 1;
-  optional uint32 limit = 2;
-  optional uint32 offset = 3;
-}
-
-message ListSourceResponse {
-    repeated SourceResponse sources = 1;
-    Pagination pagination = 2;
-}
-
 message SourceResponse {
   string id = 1;
   Source source = 2;
   string yaml_content = 3;
-}
-
-message ListAppConnectionRequest {
-  string app_id = 1;
-  optional uint32 limit = 2;
-  optional uint32 offset = 3;
 }
 
 message StartRequest {
@@ -213,23 +152,7 @@ message SetNumApiInstancesResponse {}
 message CreateAppRequest {
   repeated File files = 3;
 }
-message ParseRequest { string sql = 1; }
-message ParseResponse {
-  repeated string used_sources = 1;
-  repeated string output_tables = 3;
-}
 
-message ParseYamlRequest { string config = 1; }
-message ParseYamlResponse { AppConfig app = 1; }
-
-message GenerateYamlRequest { AppConfig app = 1; }
-message GenerateYamlResponse {
-  repeated string connections = 1;
-
-  repeated string sources = 2;
-
-  repeated string endpoints = 3;
-}
 message DeploymentInfo {
   uint32 deployment = 1;
   string phase = 2;
@@ -311,26 +234,7 @@ message FileInfo {
   string id = 1;
   File file = 2;
 }
-message DeleteFileRequest {
-  string app_id = 1;
-  repeated string file_ids = 2;
-}
-message DeleteFileResponse {
-}
-message UpdateFileRequest {
-  string app_id = 1;
-  repeated FileInfo files = 2;
-}
-message UpdateFileResponse {
-  repeated FileInfo files = 1; 
-}
-message SaveFilesRequest {
-  string app_id = 1;
-  repeated File files = 2;
-}
-message SaveFilesResponse {
-  repeated FileInfo files = 1;
-}
+
 message LogMessageRequest {
   string app_id = 1;
   uint32 deployment = 2;
