@@ -3008,9 +3008,12 @@ dependencies = [
  "dozer-ingestion-connector",
  "env_logger 0.11.2",
  "fxhash",
+ "indicatif",
  "memchr",
  "oracle",
  "regex",
+ "serde",
+ "serde_yaml",
  "tokio",
 ]
 

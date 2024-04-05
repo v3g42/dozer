@@ -1,0 +1,9 @@
+connection_string: "oracle://host:port/dbname"
+user: "your_username"
+password: "your_password"
+sql: "SELECT * FROM your_table"
+bootstrap: "CREATE TABLE your_table (id NUMBER, name VARCHAR2(100), age NUMBER)"
+parallel: 4
+timeout: 1000
+total_per_task: 10000
+record_size: 100
