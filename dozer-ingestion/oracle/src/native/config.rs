@@ -4,6 +4,8 @@ use dozer_ingestion_connector::{
 };
 use serde_json::{json, Value};
 
+use crate::connector::Scn;
+
 fn merge(a: &mut Value, b: Value) {
     match (a, b) {
         (a @ &mut Value::Object(_), Value::Object(b)) => {
@@ -18,8 +20,9 @@ fn merge(a: &mut Value, b: Value) {
 
 pub fn get_config_json(
     config: &OracleConfig,
-    tables: Vec<TableInfo>,
+    tables: &[TableInfo],
     log_reader_options: &OracleNativeReaderOptions,
+    _checkpoint: Scn,
 ) -> Value {
     let server = format!("//{0}:{1}/{2}", config.host, config.password, config.sid);
 

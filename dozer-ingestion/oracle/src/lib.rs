@@ -1,5 +1,6 @@
 use dozer_ingestion_connector::dozer_types::event::Event;
 use dozer_ingestion_connector::tokio::sync::broadcast::Receiver;
+mod native;
 use dozer_ingestion_connector::{
     async_trait,
     dozer_types::{
@@ -205,18 +206,43 @@ impl Connector for OracleConnector {
             .into_iter()
             .map(|schema| schema.map(|schema| schema.schema))
             .collect::<Result<Vec<_>, _>>()?;
-        let mut connectors = self.ensure_connection(false).await?;
-        tokio::task::spawn_blocking(move || {
-            connectors.root_connector.replicate(
-                &ingestor,
-                tables,
-                schemas,
-                checkpoint,
-                connectors.con_id,
-            )
-        })
-        .await
-        .unwrap();
+
+        match self.config.replicator.clone() {
+            dozer_ingestion_connector::dozer_types::models::ingestion_types::OracleReplicator::LogMiner { poll_interval_in_milliseconds: _ } => {
+                let mut connectors = self.ensure_connection(false).await?;
+                tokio::task::spawn_blocking(move || {
+                    connectors.root_connector.replicate(
+                        &ingestor,
+                        tables,
+                        schemas,
+                        checkpoint,
+                        connectors.con_id,
+                    )
+                })
+                .await
+                .unwrap();
+            },
+            dozer_ingestion_connector::dozer_types::models::ingestion_types::OracleReplicator::NativeLogReader(opts) => {
+                let config = self.config.clone();
+                let receiver = self.event_receiver.resubscribe();
+                let node_handle = self.node_handle.clone();
+                tokio::task::spawn(async move  {
+                    native::replicate(
+                        &ingestor,
+                        tables,
+                        schemas,
+                        checkpoint,
+                        config,
+                        opts.clone(),
+                        receiver,
+                        node_handle
+                    ).await
+                })
+                .await
+                .unwrap().unwrap();
+            },
+            dozer_ingestion_connector::dozer_types::models::ingestion_types::OracleReplicator::DozerLogReader => unimplemented!("DozerLogReader not implemented"),
+        };
 
         Ok(())
     }
