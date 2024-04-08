@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Instant;
 use std::{
     alloc::{handle_alloc_error, Layout},
@@ -344,6 +345,8 @@ impl Client {
 impl Drop for Client {
     fn drop(&mut self) {
         unsafe {
+            let mut err = MaybeUninit::uninit();
+            aerospike_close(self.inner.as_ptr(), err.as_mut_ptr());
             aerospike_destroy(self.inner.as_ptr());
         }
     }
@@ -1023,14 +1026,14 @@ impl ReadBatchResults {
     }
 }
 
-pub(crate) struct ReadBatch<'a> {
-    client: &'a Client,
+pub(crate) struct ReadBatch {
+    client: Arc<Client>,
     inner: Option<AsBatchRecords>,
     allocated_strings: Vec<String>,
     read_ops: usize,
 }
 
-impl<'a> ReadBatch<'a> {
+impl ReadBatch {
     fn reserve_read(&mut self) -> *mut as_batch_read_record {
         unsafe { check_alloc(as_batch_read_reserve(self.inner.as_mut().unwrap().as_ptr())) }
     }
@@ -1066,7 +1069,7 @@ impl<'a> ReadBatch<'a> {
     }
 
     pub(crate) fn new(
-        client: &'a Client,
+        client: Arc<Client>,
         capacity: u32,
         allocated_strings: Option<Vec<String>>,
     ) -> Self {
@@ -1100,16 +1103,16 @@ impl AsBatchRecords {
     }
 }
 
-pub(crate) struct WriteBatch<'a> {
-    client: &'a Client,
+pub(crate) struct WriteBatch {
+    client: Arc<Client>,
     inner: Option<AsBatchRecords>,
     allocated_strings: Vec<String>,
     operations: Vec<AsOperations>,
 }
 
-impl<'a> WriteBatch<'a> {
+impl WriteBatch {
     pub(crate) fn new(
-        client: &'a Client,
+        client: Arc<Client>,
         capacity: u32,
         allocated_strings: Option<Vec<String>>,
     ) -> Self {

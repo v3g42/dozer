@@ -12,9 +12,8 @@ use dozer_ingestion_connector::{
         log::{debug, error},
         models::ingestion_types::{IngestionMessage, OracleReplicator, TransactionInfo},
         node::OpIdentifier,
-        rust_decimal::{self, Decimal},
-        thiserror,
-        types::{FieldType, Operation, Schema},
+        rust_decimal, thiserror,
+        types::{Operation, Schema},
     },
     Ingestor, SourceSchema, TableIdentifier, TableInfo,
 };
@@ -33,7 +32,15 @@ pub struct Connector {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub(crate) enum ParseDateError {
+    #[error("Invalid date format: {0}")]
+    Chrono(#[from] chrono::ParseError),
+    #[error("Invalid oracle format")]
+    Oracle,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum Error {
     #[error("oracle error: {0:?}")]
     Oracle(#[from] oracle::Error),
     #[error("pdb not found: {0}")]
@@ -50,34 +57,24 @@ pub enum Error {
     },
     #[error("column count mismatch: expected {expected}, actual {actual}")]
     ColumnCountMismatch { expected: usize, actual: usize },
-    #[error("cannot convert Oracle number to decimal: {0}")]
-    NumberToDecimal(#[from] rust_decimal::Error),
+    #[error("cannot convert Oracle number to decimal: {0}. Number: {1}")]
+    NumberToDecimal(rust_decimal::Error, String),
     #[error("insert failed to match: {0}")]
     InsertFailedToMatch(String),
     #[error("delete failed to match: {0}")]
     DeleteFailedToMatch(String),
     #[error("update failed to match: {0}")]
     UpdateFailedToMatch(String),
-    #[error("field {0} not found")]
-    FieldNotFound(String),
     #[error("null value for non-nullable field {0}")]
     NullValue(String),
     #[error("cannot parse float: {0}")]
     ParseFloat(#[from] ParseFloatError),
     #[error("cannot parse date time from {1}: {0}")]
-    ParseDateTime(#[source] chrono::ParseError, String),
-    #[error("got overflow float number {0}")]
-    FloatOverflow(Decimal),
+    ParseDateTime(ParseDateError, String),
     #[error("got error when parsing uint {0}")]
-    ParseUIntFailed(Decimal),
+    ParseUIntFailed(String),
     #[error("got error when parsing int {0}")]
-    ParseIntFailed(Decimal),
-    #[error("type mismatch for {field}, expected {expected:?}, actual {actual:?}")]
-    TypeMismatch {
-        field: String,
-        expected: FieldType,
-        actual: FieldType,
-    },
+    ParseIntFailed(String),
 }
 
 /// `oracle`'s `ToSql` implementation for `&str` uses `NVARCHAR2` type, which Oracle expects to be UTF16 encoded by default.
@@ -198,10 +195,11 @@ impl Connector {
         Ok(result)
     }
 
-    pub fn get_schemas(
+    pub fn get_schemas<'a>(
         &mut self,
-        table_infos: &[TableInfo],
+        table_infos: impl IntoIterator<Item = &'a TableInfo>,
     ) -> Result<Vec<Result<SourceSchema, Error>>, Error> {
+        let table_infos: Vec<_> = table_infos.into_iter().collect();
         // Collect all tables and columns.
         let schemas = table_infos
             .iter()
@@ -251,9 +249,13 @@ impl Connector {
         Ok(result)
     }
 
-    pub fn snapshot(&mut self, ingestor: &Ingestor, tables: Vec<TableInfo>) -> Result<Scn, Error> {
+    pub fn snapshot(
+        &mut self,
+        ingestor: &Ingestor,
+        tables: Vec<(usize, TableInfo)>,
+    ) -> Result<Scn, Error> {
         let schemas = self
-            .get_schemas(&tables)?
+            .get_schemas(tables.iter().map(|(_, table)| table))?
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -261,7 +263,7 @@ impl Connector {
         debug!("{}", sql);
         self.connection.execute(sql, &[])?;
 
-        for (table_index, (table, schema)) in tables.into_iter().zip(schemas).enumerate() {
+        for ((table_index, table), schema) in tables.into_iter().zip(schemas) {
             let columns = table.column_names.join(", ");
             let owner = table.schema.unwrap_or_else(|| self.username.clone());
             let sql = format!("SELECT {} FROM {}.{}", columns, owner, table.name);
@@ -302,7 +304,7 @@ impl Connector {
         self.get_scn_and_commit()
     }
 
-    fn get_scn_and_commit(&mut self) -> Result<Scn, Error> {
+    pub(crate) fn get_scn_and_commit(&mut self) -> Result<Scn, Error> {
         let sql = "SELECT DBMS_FLASHBACK.GET_SYSTEM_CHANGE_NUMBER() FROM DUAL";
         let scn = self.connection.query_row_as::<Scn>(sql, &[])?;
         self.connection.commit()?;
@@ -312,7 +314,7 @@ impl Connector {
     pub fn replicate(
         &mut self,
         ingestor: &Ingestor,
-        tables: Vec<TableInfo>,
+        tables: Vec<(usize, TableInfo)>,
         schemas: Vec<Schema>,
         checkpoint: Scn,
         con_id: Option<u32>,
@@ -320,6 +322,7 @@ impl Connector {
         match self.replicator {
             OracleReplicator::LogMiner {
                 poll_interval_in_milliseconds,
+                fetch_batch_size,
             } => self.replicate_log_miner(
                 ingestor,
                 tables,
@@ -327,25 +330,27 @@ impl Connector {
                 checkpoint,
                 con_id,
                 Duration::from_millis(poll_interval_in_milliseconds),
+                fetch_batch_size.unwrap_or(1000),
             ),
             OracleReplicator::NativeLogReader(_) => panic!("Should not reach here"),
             OracleReplicator::DozerLogReader => unimplemented!("dozer log reader"),
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn replicate_log_miner(
         &mut self,
         ingestor: &Ingestor,
-        tables: Vec<TableInfo>,
+        tables: Vec<(usize, TableInfo)>,
         schemas: Vec<Schema>,
         checkpoint: Scn,
         con_id: Option<u32>,
         poll_interval: Duration,
+        fetch_batch_size: u32,
     ) {
         let start_scn = checkpoint + 1;
         let table_pair_to_index = tables
             .into_iter()
-            .enumerate()
             .map(|(index, table)| {
                 let schema = table.schema.unwrap_or_else(|| self.username.clone());
                 ((schema, table.name), index)
@@ -363,6 +368,7 @@ impl Connector {
                     start_scn,
                     con_id,
                     poll_interval,
+                    fetch_batch_size,
                     sender,
                     &ingestor,
                 )
@@ -498,10 +504,10 @@ mod tests {
 
         env_logger::init();
 
-        let replicate_user = "DOZER";
-        let data_user = "DOZER";
-        let host = "database-1.cxtwfj9nkwtu.ap-southeast-1.rds.amazonaws.com";
-        let sid = "ORCL";
+        let replicate_user = "C##DOZER";
+        let data_user = "CHUBEI";
+        let host = "localhost";
+        let sid = "ORCLPDB1";
 
         let mut connector = super::Connector::new(
             "oracle".into(),
@@ -517,6 +523,7 @@ mod tests {
         let schemas = connector.get_schemas(&tables).unwrap();
         let schemas = schemas.into_iter().map(Result::unwrap).collect::<Vec<_>>();
         dbg!(&schemas);
+        let tables: Vec<_> = tables.into_iter().enumerate().collect();
         let (ingestor, iterator) = Ingestor::initialize_channel(IngestionConfig::default());
         let handle = {
             let tables = tables.clone();
@@ -526,6 +533,7 @@ mod tests {
         estimate_throughput(iterator);
         let checkpoint = handle.join().unwrap().unwrap();
 
+        let sid = "ORCLCDB";
         let mut connector = super::Connector::new(
             "oracle".into(),
             replicate_user.into(),
@@ -534,6 +542,7 @@ mod tests {
             1,
             OracleReplicator::LogMiner {
                 poll_interval_in_milliseconds: 1000,
+                fetch_batch_size: None,
             },
         )
         .unwrap();

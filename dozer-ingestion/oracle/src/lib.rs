@@ -10,7 +10,7 @@ use dozer_ingestion_connector::{
         node::{NodeHandle, OpIdentifier},
         types::FieldType,
     },
-    tokio, Connector, Ingestor, SourceSchemaResult, TableIdentifier, TableInfo,
+    tokio, Connector, Ingestor, ReplicationTable, SourceSchemaResult, TableIdentifier, TableInfo,
 };
 #[derive(Debug)]
 pub struct OracleConnector {
@@ -157,10 +157,10 @@ impl Connector for OracleConnector {
         Ok(vec![])
     }
 
-    async fn start(
+    async fn start_with_replicationmode(
         &mut self,
         ingestor: &Ingestor,
-        tables: Vec<TableInfo>,
+        tables: Vec<ReplicationTable>,
         last_checkpoint: Option<OpIdentifier>,
     ) -> Result<(), BoxedError> {
         let checkpoint = if let Some(last_checkpoint) = last_checkpoint {
@@ -169,7 +169,6 @@ impl Connector for OracleConnector {
             info!("No checkpoint passed, starting snapshotting");
 
             let ingestor_clone = ingestor.clone();
-            let tables = tables.clone();
             let mut connectors = self.ensure_connection(false).await?;
 
             if ingestor
@@ -181,8 +180,24 @@ impl Connector for OracleConnector {
             {
                 return Ok(());
             }
+            let snapshot_tables: Vec<_> = tables
+                .iter()
+                .enumerate()
+                .filter_map(|(i, table)| {
+                    table
+                        .replication_mode
+                        .snapshot()
+                        .then_some((i, table.info.clone()))
+                })
+                .collect();
             let scn = tokio::task::spawn_blocking(move || {
-                connectors.pdb_connector.snapshot(&ingestor_clone, tables)
+                if !snapshot_tables.is_empty() {
+                    connectors
+                        .pdb_connector
+                        .snapshot(&ingestor_clone, snapshot_tables)
+                } else {
+                    connectors.pdb_connector.get_scn_and_commit()
+                }
             })
             .await
             .unwrap()?;
@@ -199,8 +214,25 @@ impl Connector for OracleConnector {
             scn
         };
 
-        info!("Replicating from checkpoint: {}", checkpoint);
         let ingestor = ingestor.clone();
+        let replication_tables: Vec<(usize, TableInfo)> = tables
+            .iter()
+            .enumerate()
+            .filter_map(|(i, table)| {
+                table
+                    .replication_mode
+                    .replicate()
+                    .then_some((i, table.info.clone()))
+            })
+            .collect();
+        if replication_tables.is_empty() {
+            return Ok(());
+        }
+        info!("Replicating from checkpoint: {}", checkpoint);
+        let tables: Vec<_> = tables
+            .into_iter()
+            .map(|ReplicationTable { info, .. }| info)
+            .collect();
         let schemas = self.get_schemas(&tables).await?;
         let schemas = schemas
             .into_iter()
@@ -245,6 +277,15 @@ impl Connector for OracleConnector {
         };
 
         Ok(())
+    }
+
+    async fn start(
+        &mut self,
+        _ingestor: &Ingestor,
+        _tables: Vec<TableInfo>,
+        _last_checkpoint: Option<OpIdentifier>,
+    ) -> Result<(), BoxedError> {
+        unimplemented!()
     }
 }
 

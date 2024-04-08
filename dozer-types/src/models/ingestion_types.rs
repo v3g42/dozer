@@ -663,14 +663,18 @@ pub struct OracleConfig {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema)]
 pub enum OracleReplicator {
-    LogMiner { poll_interval_in_milliseconds: u64 },
     NativeLogReader(OracleNativeReaderOptions),
+    LogMiner {
+        poll_interval_in_milliseconds: u64,
+        fetch_batch_size: Option<u32>,
+    },
     DozerLogReader,
 }
 impl Default for OracleReplicator {
     fn default() -> Self {
         OracleReplicator::LogMiner {
             poll_interval_in_milliseconds: 100,
+            fetch_batch_size: None,
         }
     }
 }

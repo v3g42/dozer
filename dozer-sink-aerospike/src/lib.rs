@@ -1,6 +1,7 @@
 pub use crate::aerospike::Client;
 
 use aerospike_client_sys::*;
+use constants::SNAPSHOT_DEFAULT_BATCH_SIZE;
 use denorm_dag::DenormalizationState;
 use dozer_core::event::EventHub;
 use dozer_types::log::error;
@@ -46,6 +47,8 @@ mod constants {
     pub(super) const META_KEY: &CStr = cstr(b"metadata\0");
     pub(super) const META_BASE_TXN_ID_BIN: &CStr = cstr(b"txn_id\0");
     pub(super) const META_LOOKUP_TXN_ID_BIN: &CStr = cstr(b"txn_id\0");
+
+    pub(super) const SNAPSHOT_DEFAULT_BATCH_SIZE: u64 = 20_000;
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -358,6 +361,12 @@ impl AerospikeSink {
             state,
             metadata_writer,
             last_committed_transaction: None,
+            snapshotting: false,
+            snapshotting_batch_size: 0,
+            snapshotting_target_batch_size: config
+                .snapshot_batch_size
+                .or(config.preferred_batch_size)
+                .unwrap_or(SNAPSHOT_DEFAULT_BATCH_SIZE),
         };
 
         Ok(Self {
@@ -372,15 +381,29 @@ impl AerospikeSink {
 
 #[derive(Debug)]
 struct AerospikeSinkWorker {
+    snapshotting_batch_size: u64,
+    snapshotting_target_batch_size: u64,
     client: Arc<Client>,
     state: DenormalizationState,
     last_committed_transaction: Option<u64>,
     metadata_writer: AerospikeMetadata,
+    snapshotting: bool,
 }
 
 impl AerospikeSinkWorker {
     fn process(&mut self, op: TableOperation) -> Result<(), AerospikeSinkError> {
-        self.state.process(op)?;
+        if self.snapshotting {
+            self.snapshotting_batch_size = self
+                .snapshotting_batch_size
+                .saturating_add(op.op.len().try_into().unwrap_or(u64::MAX));
+            self.state.process(op)?;
+            if self.snapshotting_batch_size >= self.snapshotting_target_batch_size {
+                self.state.persist(self.client.clone())?;
+                self.snapshotting_batch_size = 0;
+            }
+        } else {
+            self.state.process(op)?;
+        }
         Ok(())
     }
 
@@ -398,7 +421,7 @@ impl AerospikeSinkWorker {
                     }
                     if current <= last_denorm {
                         // Catching up between lookup and denorm. Only need to write lookup.
-                        self.state.persist(&self.client)?;
+                        self.state.persist(self.client.clone())?;
                         self.metadata_writer.write_lookup(current)?;
                         return Ok(());
                     }
@@ -410,7 +433,7 @@ impl AerospikeSinkWorker {
                     // the base table and writing the lookup tables during the first
                     // transaction after initial snapshotting. Only write the lookup
                     // tables
-                    self.state.persist(&self.client)?;
+                    self.state.persist(self.client.clone())?;
                     return Ok(());
                 }
                 // First transaction. No need to do anything special
@@ -431,13 +454,13 @@ impl AerospikeSinkWorker {
 
     fn flush_batch(&mut self) -> Result<(), AerospikeSinkError> {
         let txid = self.last_committed_transaction.take();
-        let denormalized_tables = self.state.perform_denorm(&self.client)?;
+        let denormalized_tables = self.state.perform_denorm(self.client.clone())?;
         let batch_size_est: usize = denormalized_tables
             .iter()
             .map(|table| table.records.len())
             .sum();
         // Write denormed tables
-        let mut batch = WriteBatch::new(&self.client, batch_size_est as u32, None);
+        let mut batch = WriteBatch::new(self.client.clone(), batch_size_est as u32, None);
         for table in denormalized_tables {
             for record in table.records {
                 let key = table.pk.iter().map(|i| record[*i].clone()).collect_vec();
@@ -458,7 +481,7 @@ impl AerospikeSinkWorker {
             self.metadata_writer.write_denorm(txid)?;
         }
 
-        self.state.persist(&self.client)?;
+        self.state.persist(self.client.clone())?;
 
         if let Some(txid) = txid {
             self.metadata_writer.write_lookup(txid)?;
@@ -500,14 +523,25 @@ impl Sink for AerospikeSink {
         &mut self,
         _connection_name: String,
     ) -> Result<(), BoxedError> {
+        self.replication_worker.snapshotting = true;
         Ok(())
     }
 
     fn on_source_snapshotting_done(
         &mut self,
         _connection_name: String,
-        _id: Option<OpIdentifier>,
+        id: Option<OpIdentifier>,
     ) -> Result<(), BoxedError> {
+        self.replication_worker.snapshotting = false;
+        if let Some(opid) = id {
+            self.replication_worker
+                .metadata_writer
+                .write_denorm(opid.txid)?;
+            self.replication_worker
+                .metadata_writer
+                .write_lookup(opid.txid)?;
+        }
+        self.replication_worker.flush_batch()?;
         Ok(())
     }
 
@@ -569,19 +603,34 @@ impl Sink for AerospikeSink {
 #[cfg(test)]
 mod tests {
 
-    use dozer_core::{tokio, DEFAULT_PORT_HANDLE};
+    use std::{sync::Arc, time::SystemTime};
+
+    use dozer_core::{epoch::Epoch, tokio};
     use std::time::Duration;
 
     use dozer_types::{
         chrono::{DateTime, NaiveDate},
         geo::Point,
         models::sink::AerospikeSinkTable,
+        node::{NodeHandle, SourceStates},
         ordered_float::OrderedFloat,
         rust_decimal::Decimal,
         types::{DozerDuration, DozerPoint, FieldDefinition, Operation, Record},
     };
 
     use super::*;
+
+    pub(crate) fn client() -> Arc<Client> {
+        let client = Client::new(&CString::new("localhost:3000").unwrap()).unwrap();
+        let mut response = std::ptr::null_mut();
+        let request = "truncate-namespace:namespace=test";
+        let request = CString::new(request).unwrap();
+        unsafe {
+            client.info(&request, &mut response).unwrap();
+            cf_free(response as *mut std::ffi::c_void);
+        }
+        Arc::new(client)
+    }
 
     fn f(name: &str, typ: FieldType) -> FieldDefinition {
         FieldDefinition {
@@ -599,13 +648,14 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_inserts() {
+        let _ = client();
         let mut sink = sink("inserts").await;
         for i in 0..N_RECORDS {
             sink.process(TableOperation::without_id(
                 Operation::Insert {
                     new: record(i as u64),
                 },
-                DEFAULT_PORT_HANDLE,
+                0,
             ))
             .unwrap();
         }
@@ -614,6 +664,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_inserts_batch() {
+        let _ = client();
         let mut batches = Vec::with_capacity(N_RECORDS / BATCH_SIZE);
         for i in 0..N_RECORDS / BATCH_SIZE {
             let mut batch = Vec::with_capacity(BATCH_SIZE);
@@ -626,7 +677,7 @@ mod tests {
         for batch in batches {
             sink.process(TableOperation::without_id(
                 Operation::BatchInsert { new: batch },
-                DEFAULT_PORT_HANDLE,
+                0,
             ))
             .unwrap()
         }
@@ -685,10 +736,11 @@ mod tests {
                 preferred_batch_size: None,
                 metadata_namespace: "test".into(),
                 metadata_set: None,
+                snapshot_batch_size: None,
             },
         );
         factory
-            .build([(DEFAULT_PORT_HANDLE, schema)].into(), EventHub::new(1))
+            .build([(0, schema)].into(), EventHub::new(1))
             .await
             .unwrap()
     }
@@ -725,5 +777,71 @@ mod tests {
             }
             })),
         ])
+    }
+
+    #[tokio::test]
+    #[ignore = "Requires aerospike server"]
+    async fn test_txids() {
+        let _ = client();
+        let mut s = sink("resume").await;
+        s.on_source_snapshotting_started("resume".into()).unwrap();
+        s.process(TableOperation {
+            id: None,
+            op: Operation::Insert { new: record(1) },
+            port: 0,
+        })
+        .unwrap();
+        s.on_source_snapshotting_done(
+            "resume".into(),
+            Some(OpIdentifier {
+                txid: 6,
+                seq_in_tx: 2,
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            s.get_latest_op_id().unwrap(),
+            Some(OpIdentifier {
+                txid: 6,
+                seq_in_tx: 0
+            })
+        );
+        s.process(TableOperation {
+            id: Some(OpIdentifier {
+                txid: 7,
+                seq_in_tx: 0,
+            }),
+            op: Operation::Insert { new: record(7) },
+            port: 0,
+        })
+        .unwrap();
+
+        let mut source_states = SourceStates::new();
+        source_states.insert(
+            NodeHandle::new(None, "source".into()),
+            dozer_types::node::SourceState::Restartable(OpIdentifier {
+                txid: 8,
+                seq_in_tx: 0,
+            }),
+        );
+        s.commit(&Epoch::new(1, Arc::new(source_states), SystemTime::now()))
+            .unwrap();
+        s.flush_batch().unwrap();
+
+        assert_eq!(
+            s.get_latest_op_id().unwrap(),
+            Some(OpIdentifier {
+                txid: 8,
+                seq_in_tx: 0
+            })
+        );
+        let mut s = sink("resume").await;
+        assert_eq!(
+            s.get_latest_op_id().unwrap(),
+            Some(OpIdentifier {
+                txid: 8,
+                seq_in_tx: 0
+            })
+        );
     }
 }

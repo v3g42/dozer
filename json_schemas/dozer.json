@@ -253,6 +253,14 @@
           "format": "uint64",
           "minimum": 0.0
         },
+        "snapshot_batch_size": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
         "tables": {
           "type": "array",
           "items": {
@@ -1497,6 +1505,14 @@
                 "poll_interval_in_milliseconds"
               ],
               "properties": {
+                "fetch_batch_size": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "uint32",
+                  "minimum": 0.0
+                },
                 "poll_interval_in_milliseconds": {
                   "type": "integer",
                   "format": "uint64",
@@ -1696,6 +1712,14 @@
       "type": "string",
       "enum": [
         "RealTime"
+      ]
+    },
+    "ReplicationMode": {
+      "type": "string",
+      "enum": [
+        "SnapshotOnly",
+        "ReplicationOnly",
+        "Full"
       ]
     },
     "ReplicationSettings": {
@@ -1975,6 +1999,14 @@
           "allOf": [
             {
               "$ref": "#/definitions/RefreshConfig"
+            }
+          ]
+        },
+        "replication_mode": {
+          "default": "Full",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ReplicationMode"
             }
           ]
         },
