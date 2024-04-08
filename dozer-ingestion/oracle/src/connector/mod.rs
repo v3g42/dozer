@@ -328,6 +328,7 @@ impl Connector {
                 con_id,
                 Duration::from_millis(poll_interval_in_milliseconds),
             ),
+            OracleReplicator::NativeLogReader(_) => panic!("Should not reach here"),
             OracleReplicator::DozerLogReader => unimplemented!("dozer log reader"),
         }
     }

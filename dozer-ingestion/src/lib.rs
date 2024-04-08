@@ -163,8 +163,10 @@ pub fn get_connector(
             event_hub.receiver,
         ))),
         ConnectionConfig::Oracle(oracle_config) => Ok(Box::new(OracleConnector::new(
-            connection.name,
+            connection.name.clone(),
             oracle_config,
+            NodeHandle::new(None, connection.name),
+            event_hub.receiver,
         ))),
     }
 }

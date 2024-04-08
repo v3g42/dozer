@@ -643,7 +643,7 @@ pub struct AerospikeConfig {
     pub sets: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema, Default)]
 pub struct OracleConfig {
     pub user: String,
     pub password: String,
@@ -661,8 +661,51 @@ pub struct OracleConfig {
     pub replicator: OracleReplicator,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, Hash, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema)]
 pub enum OracleReplicator {
     LogMiner { poll_interval_in_milliseconds: u64 },
+    NativeLogReader(OracleNativeReaderOptions),
     DozerLogReader,
+}
+impl Default for OracleReplicator {
+    fn default() -> Self {
+        OracleReplicator::LogMiner {
+            poll_interval_in_milliseconds: 100,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema)]
+pub struct OracleNativeReaderOptions {
+    #[serde(default = "OracleNativeReaderOptions::default_uri")]
+    pub uri: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_source: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_target: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub override_json: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<OracleNativeLogReaderMetrics>,
+}
+
+impl OracleNativeReaderOptions {
+    fn default_uri() -> String {
+        "0.0.0.0:50001".to_string()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema)]
+pub struct OracleNativeLogReaderMetrics {
+    #[serde(default = "OracleNativeLogReaderMetrics::default_host")]
+    pub host: String,
+}
+impl OracleNativeLogReaderMetrics {
+    fn default_host() -> String {
+        "0.0.0.0:8091".to_string()
+    }
 }

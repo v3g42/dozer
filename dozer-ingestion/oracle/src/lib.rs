@@ -1,20 +1,23 @@
+use dozer_ingestion_connector::dozer_types::event::Event;
+use dozer_ingestion_connector::tokio::sync::broadcast::Receiver;
 use dozer_ingestion_connector::{
     async_trait,
     dozer_types::{
         errors::internal::BoxedError,
         log::info,
         models::ingestion_types::{IngestionMessage, OracleConfig, TransactionInfo},
-        node::OpIdentifier,
+        node::{NodeHandle, OpIdentifier},
         types::FieldType,
     },
     tokio, Connector, Ingestor, SourceSchemaResult, TableIdentifier, TableInfo,
 };
-
 #[derive(Debug)]
 pub struct OracleConnector {
     connection_name: String,
     config: OracleConfig,
     connectors: Option<Connectors>,
+    node_handle: NodeHandle,
+    event_receiver: Receiver<Event>,
 }
 
 #[derive(Debug, Clone)]
@@ -27,11 +30,18 @@ struct Connectors {
 const DEFAULT_BATCH_SIZE: usize = 100_000;
 
 impl OracleConnector {
-    pub fn new(connection_name: String, config: OracleConfig) -> Self {
+    pub fn new(
+        connection_name: String,
+        config: OracleConfig,
+        node_handle: NodeHandle,
+        event_receiver: Receiver<Event>,
+    ) -> Self {
         Self {
             connection_name,
             config,
             connectors: None,
+            node_handle,
+            event_receiver,
         }
     }
 
@@ -54,7 +64,7 @@ impl OracleConnector {
                         &config.password,
                         &root_connect_string,
                         batch_size,
-                        config.replicator,
+                        config.replicator.clone(),
                     )?;
 
                     let (pdb_connector, con_id) = if let Some(pdb) = pdb {

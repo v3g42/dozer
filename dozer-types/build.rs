@@ -39,6 +39,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .file_descriptor_set_path(out_dir.join("api_explorer.bin"))
         .compile(&["protos/api_explorer.proto"], &["protos"])?;
 
+    tonic_build::configure().compile(&["protos/oracle.proto"], &["protos"])?;
+
     // Sample service generated for tests and development
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     tonic_build::configure()

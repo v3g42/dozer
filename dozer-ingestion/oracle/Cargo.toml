@@ -10,6 +10,14 @@ license = "AGPL-3.0-or-later"
 dozer-ingestion-connector = { path = "../connector" }
 oracle = { version = "0.5.7", features = ["chrono", "stmt_without_lifetime"] }
 regex = "1.10.3"
+serde = "1.0.197"
+serde_json = { version = "1.0.108", features = ["arbitrary_precision"] }
+tempdir = "0.3.7"
+tower-http = { version = "0.4", features = ["full"] }
+tonic-web = "0.11.0"
+tonic-reflection = "0.11.0"
+tokio-stream = "0.1.12"
+h2 = { version = "0.4.4", optional = true }
 
 [dev-dependencies]
 env_logger = "0.11.1"

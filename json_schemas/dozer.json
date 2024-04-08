@@ -1427,6 +1427,52 @@
         }
       }
     },
+    "OracleNativeLogReaderMetrics": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "default": "0.0.0.0:8091",
+          "type": "string"
+        }
+      }
+    },
+    "OracleNativeReaderOptions": {
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/OracleNativeLogReaderMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "override_json": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "override_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "override_target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uri": {
+          "default": "0.0.0.0:50001",
+          "type": "string"
+        }
+      }
+    },
     "OracleReplicator": {
       "oneOf": [
         {
@@ -1453,6 +1499,18 @@
                   "minimum": 0.0
                 }
               }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "NativeLogReader"
+          ],
+          "properties": {
+            "NativeLogReader": {
+              "$ref": "#/definitions/OracleNativeReaderOptions"
             }
           },
           "additionalProperties": false

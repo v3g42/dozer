@@ -51,6 +51,11 @@ pub mod api_explorer {
     pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("api_explorer");
 }
 
+pub mod oracle {
+    #![allow(clippy::derive_partial_eq_without_eq)]
+    tonic::include_proto!("dozer.openlog");
+}
+
 // To be used in tests
 pub mod generated {
     pub mod films {
