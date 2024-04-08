@@ -1467,6 +1467,10 @@
             "null"
           ]
         },
+        "run_inline": {
+          "default": false,
+          "type": "boolean"
+        },
         "uri": {
           "default": "0.0.0.0:50001",
           "type": "string"

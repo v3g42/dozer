@@ -227,8 +227,7 @@ impl Connector for OracleConnector {
                 let receiver = self.event_receiver.resubscribe();
                 let node_handle = self.node_handle.clone();
                 tokio::task::spawn(async move  {
-                    native::replicate(
-                        &ingestor,
+                    let replicator = native::OracleNativeReplicator::new(
                         tables,
                         schemas,
                         checkpoint,
@@ -236,7 +235,8 @@ impl Connector for OracleConnector {
                         opts.clone(),
                         receiver,
                         node_handle
-                    ).await
+                    );
+                    replicator.replicate(&ingestor).await
                 })
                 .await
                 .unwrap().unwrap();

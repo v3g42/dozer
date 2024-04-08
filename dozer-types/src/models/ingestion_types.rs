@@ -677,6 +677,9 @@ impl Default for OracleReplicator {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Hash, JsonSchema)]
 pub struct OracleNativeReaderOptions {
+    #[serde(default)]
+    pub run_inline: bool,
+
     #[serde(default = "OracleNativeReaderOptions::default_uri")]
     pub uri: String,
 

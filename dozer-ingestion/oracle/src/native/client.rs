@@ -1,3 +1,6 @@
+use std::net::SocketAddr;
+
+use dozer_ingestion_connector::dozer_types::grpc_types::oracle::open_log_replicator_client::OpenLogReplicatorClient;
 use dozer_ingestion_connector::dozer_types::grpc_types::oracle::{RedoRequest, RedoResponse};
 use dozer_ingestion_connector::dozer_types::log::warn;
 use dozer_ingestion_connector::dozer_types::models::ingestion_types::OracleNativeReaderOptions;
@@ -22,46 +25,6 @@ use dozer_types::grpc_types::oracle::open_log_replicator_server::{
 use crate::native::handle_redo_request;
 
 use super::map_redo_response;
-
-pub async fn serve(
-    ingestor: &Ingestor,
-    tables: Vec<TableInfo>,
-    config: OracleNativeReaderOptions,
-    event_receiver: Receiver<Event>,
-    node_handle: NodeHandle,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = config.uri.parse()?;
-
-    // Ingestor will live as long as the server
-    // Refactor to use Arc
-    let ingestor = unsafe { std::mem::transmute::<&'_ Ingestor, &'static Ingestor>(ingestor) };
-
-    let ingest_service = NativeLogIngestService {
-        ingestor,
-        tables,
-        event_receiver,
-        node_handle,
-    };
-    let ingest_service = tonic_web::enable(OpenLogReplicatorServer::new(ingest_service));
-
-    let reflection_service = tonic_reflection::server::Builder::configure()
-        .register_encoded_file_descriptor_set(dozer_types::grpc_types::ingest::FILE_DESCRIPTOR_SET)
-        .build()
-        .unwrap();
-    info!("Starting Native Oracle Log GRPC Server  on {}", config.uri,);
-    Server::builder()
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
-                .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
-        )
-        .accept_http1(true)
-        .add_service(ingest_service)
-        .add_service(reflection_service)
-        .serve(addr)
-        .await
-        .map_err(Into::into)
-}
 
 struct NativeLogIngestService {
     ingestor: &'static Ingestor,
