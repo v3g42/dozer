@@ -30,7 +30,7 @@ use tokio_stream::wrappers::ReceiverStream;
 const REPLICATOR_CMD: &str = "OpenLogReplicator";
 
 pub struct OracleNativeReplicator {
-    tables: Vec<TableInfo>,
+    tables: Vec<(usize, TableInfo)>,
     schemas: Vec<Schema>,
     checkpoint: Scn,
     config: OracleConfig,
@@ -40,7 +40,7 @@ pub struct OracleNativeReplicator {
 }
 impl OracleNativeReplicator {
     pub fn new(
-        tables: Vec<TableInfo>,
+        tables: Vec<(usize, TableInfo)>,
         schemas: Vec<Schema>,
         checkpoint: Scn,
         config: OracleConfig,
@@ -85,28 +85,61 @@ impl OracleNativeReplicator {
 
     pub async fn connect(&self) -> Result<(), Box<dyn std::error::Error>> {
         //  https://github.com/bersler/OpenLogReplicator/blob/master/documentation/user-manual/user-manual.adoc#communication-protocol
-        let mut client =
-            OpenLogReplicatorClient::connect(format!("http://{0}", self.opts.uri)).await?;
+
+        info!("Connecting to OLR: {}", self.opts.uri);
+        let mut client = OpenLogReplicatorClient::connect(self.opts.uri.clone()).await?;
 
         let (tx, rx) = mpsc::channel::<RedoRequest>(128);
 
         let in_stream = ReceiverStream::new(rx);
         let in_stream = Box::pin(in_stream);
-        let response = client.redo(in_stream).await?;
-
-        let mut out_stream = response.into_inner();
+        info!("Requesting redo: {}", self.opts.uri);
 
         // Send Info Message
+
         let info_request = self.redo_request(RequestCode::Info);
+        info!(
+            "OLR: Requesting Info: {}, {:?}",
+            self.opts.uri, info_request
+        );
+        let bytes: &[u8] = unsafe { any_as_u8_slice(&info_request) };
+        info!("bytes: {:x?}", bytes);
+
         tx.send(info_request).await?;
 
-        let info_response = out_stream.next().await.expect("response is expected")?;
-        println!("INFO: {:?}", info_response);
-
-        // Start
+        let response = client.redo(in_stream).await?;
+        let mut out_stream = response.into_inner();
         let mut start_request = self.redo_request(RequestCode::Start);
         start_request.tm_val = Some(TmVal::Scn(self.checkpoint));
+
         tx.send(start_request).await?;
+
+        // Wait for response
+        let info_response = out_stream.next().await.expect("response is expected")?;
+
+        let mut start_request = self.redo_request(RequestCode::Start);
+
+        info!("OLR INFO: {:?}", info_response);
+
+        let mut follow_request = self.redo_request(RequestCode::Start);
+        start_request.tm_val = Some(TmVal::Scn(self.checkpoint));
+        match info_response.code() {
+            dozer_ingestion_connector::dozer_types::grpc_types::oracle::ResponseCode::Ready => {
+                follow_request.tm_val = Some(TmVal::Scn(self.checkpoint));
+                follow_request.code = RequestCode::Start as i32;
+            }
+            dozer_ingestion_connector::dozer_types::grpc_types::oracle::ResponseCode::Replicate => {
+                follow_request.c_scn = Some(self.checkpoint);
+                follow_request.c_idx = Some(0);
+                follow_request.code = RequestCode::Continue as i32;
+            }
+            r => panic!("Should not reach here yet {:?}", r),
+        }
+
+        // Start
+        info!("OLR: Requesting Start: {}", self.opts.uri);
+
+        tx.send(follow_request).await?;
 
         let _t = tokio::spawn(async move {
             while let Some(msg) = out_stream.next().await {
@@ -148,4 +181,8 @@ pub fn map_redo_response(
     node_handle: NodeHandle,
 ) -> Result<RedoResponse, tonic::Status> {
     todo!()
+}
+
+unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
 }

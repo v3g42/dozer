@@ -53,7 +53,7 @@ pub mod api_explorer {
 
 pub mod oracle {
     #![allow(clippy::derive_partial_eq_without_eq)]
-    tonic::include_proto!("dozer.openlog");
+    tonic::include_proto!("open_log_replicator.pb");
 }
 
 // To be used in tests

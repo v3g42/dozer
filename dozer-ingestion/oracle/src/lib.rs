@@ -240,12 +240,12 @@ impl Connector for OracleConnector {
             .collect::<Result<Vec<_>, _>>()?;
 
         match self.config.replicator.clone() {
-            dozer_ingestion_connector::dozer_types::models::ingestion_types::OracleReplicator::LogMiner { poll_interval_in_milliseconds: _ } => {
+            dozer_ingestion_connector::dozer_types::models::ingestion_types::OracleReplicator::LogMiner { poll_interval_in_milliseconds: _, fetch_batch_size: _ } => {
                 let mut connectors = self.ensure_connection(false).await?;
                 tokio::task::spawn_blocking(move || {
                     connectors.root_connector.replicate(
                         &ingestor,
-                        tables,
+                        replication_tables,
                         schemas,
                         checkpoint,
                         connectors.con_id,
@@ -260,7 +260,7 @@ impl Connector for OracleConnector {
                 let node_handle = self.node_handle.clone();
                 tokio::task::spawn(async move  {
                     let replicator = native::OracleNativeReplicator::new(
-                        tables,
+                        replication_tables,
                         schemas,
                         checkpoint,
                         config,

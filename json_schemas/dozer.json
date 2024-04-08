@@ -1496,6 +1496,18 @@
         {
           "type": "object",
           "required": [
+            "NativeLogReader"
+          ],
+          "properties": {
+            "NativeLogReader": {
+              "$ref": "#/definitions/OracleNativeReaderOptions"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "LogMiner"
           ],
           "properties": {
@@ -1519,18 +1531,6 @@
                   "minimum": 0.0
                 }
               }
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "NativeLogReader"
-          ],
-          "properties": {
-            "NativeLogReader": {
-              "$ref": "#/definitions/OracleNativeReaderOptions"
             }
           },
           "additionalProperties": false

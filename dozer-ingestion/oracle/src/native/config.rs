@@ -20,7 +20,7 @@ fn merge(a: &mut Value, b: Value) {
 
 pub fn get_config_json(
     config: &OracleConfig,
-    tables: &[TableInfo],
+    tables: &[(usize, TableInfo)],
     log_reader_options: &OracleNativeReaderOptions,
     _checkpoint: Scn,
 ) -> Value {
@@ -39,9 +39,9 @@ pub fn get_config_json(
         "type": "json"
       },
       "filter": {
-        "table": json!(tables.iter().map(|t: &TableInfo| {return json!( {
-            "owner": t.schema,
-            "table": t.name
+        "table": json!(tables.iter().map(|t: &(usize, TableInfo)| {return json!( {
+            "owner": t.1.schema,
+            "table": t.1.name
           })}).collect::<Vec<Value>>())
       }
     });
