@@ -30,6 +30,7 @@ pub struct Connector {
     username: String,
     batch_size: usize,
     replicator: OracleReplicator,
+    connect_config: ConnectConfig,
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -103,6 +104,12 @@ impl ToSql for OracleString<'_> {
 
 pub type Scn = u64;
 
+#[derive(Debug, Clone)]
+pub struct ConnectConfig {
+    username: String,
+    password: String,
+    connect_string: String,
+}
 impl Connector {
     pub fn new(
         connection_name: String,
@@ -114,12 +121,18 @@ impl Connector {
     ) -> Result<Self> {
         let connection = Connection::connect(&username, password, connect_string)?;
 
+        let connect_config = ConnectConfig {
+            username: username.to_string(),
+            password: password.to_string(),
+            connect_string: connect_string.to_string(),
+        };
         let connector = Self {
             connection_name,
             connection: Arc::new(connection),
             username,
             batch_size,
             replicator,
+            connect_config,
         };
         Ok(connector)
     }
@@ -361,9 +374,18 @@ impl Connector {
         let (sender, receiver) = std::sync::mpsc::sync_channel(100);
         let handle = {
             let connection = self.connection.clone();
+            let connect_config = self.connect_config.clone();
             let ingestor = ingestor.clone();
             std::thread::spawn(move || {
-                replicate::log_miner_loop(connection, start_scn, con_id, config, sender, &ingestor)
+                replicate::log_miner_loop(
+                    connect_config,
+                    connection,
+                    start_scn,
+                    con_id,
+                    config,
+                    sender,
+                    &ingestor,
+                )
             })
         };
 

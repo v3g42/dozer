@@ -5,10 +5,9 @@ use dozer_ingestion_connector::dozer_types::chrono::{DateTime, Utc};
 use dozer_ingestion_connector::dozer_types::models::ingestion_types::LogMinerConfig;
 use dozer_ingestion_connector::Ingestor;
 
-use dozer_ingestion_connector::dozer_types::log::debug;
-
 use oracle::{sql_type::FromSql, Connection, RowValue};
 
+use crate::connector::ConnectConfig;
 use crate::connector::{
     replicate::log::{
         listing::LogCollector,
@@ -92,6 +91,7 @@ pub struct LogMinerContent {
 
 /// `ingestor` is only used for checking if ingestion has ended so we can break the loop.
 pub fn log_miner_loop(
+    connect_config: ConnectConfig,
     connection: Arc<Connection>,
     start_scn: Scn,
     con_id: Option<u32>,
@@ -99,7 +99,15 @@ pub fn log_miner_loop(
     sender: SyncSender<LogMinerContent>,
     ingestor: &Ingestor,
 ) -> Result<()> {
-    log_reader_loop(connection, start_scn, con_id, config, sender, ingestor)
+    log_reader_loop(
+        connect_config,
+        connection,
+        start_scn,
+        con_id,
+        config,
+        sender,
+        ingestor,
+    )
 }
 
 macro_rules! ora_try {
@@ -139,6 +147,7 @@ fn do_log_mining(
 }
 
 fn log_reader_loop(
+    connect_config: ConnectConfig,
     connection: Arc<Connection>,
     mut start_scn: Scn,
     con_id: Option<u32>,
@@ -149,12 +158,12 @@ fn log_reader_loop(
     let log_collector = LogCollector::new(connection.clone());
     let mut logs = log_collector.get_logs(start_scn)?;
     add_logfiles(connection.as_ref(), &logs)?;
-    let logminer_session_mutex = Arc::new(Mutex::new(0));
+    // let logminer_session_mutex = Arc::new(Mutex::new(0));
     let (work_sender, work_receiver) = crossbeam_channel::bounded::<LogminerTask>(100);
     for _ in 0..4 {
         let work_receiver = work_receiver.clone();
-        let logminer_session_mutex = logminer_session_mutex.clone();
-        let connection = connection.clone();
+        // let logminer_session_mutex = logminer_session_mutex.clone();
+        let connect_config = connect_config.clone();
         std::thread::spawn(move || {
             'outer: for LogminerTask {
                 start_scn,
@@ -162,16 +171,22 @@ fn log_reader_loop(
                 result_sender,
             } in work_receiver.clone()
             {
-                let connection = connection.clone();
+                let connection = Connection::connect(
+                    &connect_config.username,
+                    connect_config.password.clone(),
+                    connect_config.connect_string.clone(),
+                )
+                .unwrap();
                 let rows = {
-                    let _guard = logminer_session_mutex.lock();
-                    do_log_mining(
-                        connection.as_ref(),
+                    // let _guard = logminer_session_mutex.lock();
+                    let rows = do_log_mining(
+                        &connection,
                         con_id,
                         config.fetch_batch_size,
                         start_scn,
                         end_scn,
-                    )
+                    );
+                    rows
                 };
                 match rows {
                     Ok(rows) => {
