@@ -27,7 +27,6 @@ impl<'a> LogMinerSession<'a> {
         start: Scn,
         end: Scn,
         fetch_batch_size: u32,
-        _files: &AddedLogfiles,
     ) -> Result<Self> {
         let sql = "
         BEGIN
@@ -58,9 +57,9 @@ impl<'a> LogMinerSession<'a> {
         )
     }
 
-    pub(crate) fn end(self, _files: AddedLogfiles) -> Result<()> {
+    pub(crate) fn end(connection: &Connection) -> Result<()> {
         let sql = "BEGIN DBMS_LOGMNR.END_LOGMNR; END;";
-        self.connection.execute(sql, &[])?;
+        connection.execute(sql, &[])?;
         Ok(())
     }
 }
@@ -80,7 +79,6 @@ fn log_miner_stmt(
 
     let mut stmt = connection
         .statement(&sql)
-        .prefetch_rows(fetch_batch_size)
         .fetch_array_size(fetch_batch_size)
         .build()?;
 

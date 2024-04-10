@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use dozer_ingestion_connector::dozer_types::log::debug;
 use oracle::{
@@ -8,8 +8,8 @@ use oracle::{
 
 use crate::connector::{Error, Result, Scn};
 
-pub(super) struct LogCollector<'a> {
-    connection: &'a Connection,
+pub(super) struct LogCollector {
+    connection: Arc<Connection>,
 }
 
 #[repr(u8)]
@@ -49,8 +49,8 @@ impl From<u8> for LogType {
     }
 }
 
-impl<'a> LogCollector<'a> {
-    pub(super) fn new(connection: &'a Connection) -> Self {
+impl LogCollector {
+    pub(super) fn new(connection: Arc<Connection>) -> Self {
         Self { connection }
     }
 }
@@ -86,7 +86,7 @@ impl Logs {
     }
 }
 
-impl LogCollector<'_> {
+impl LogCollector {
     fn get_logs_stmt(&self, start_scn: Scn) -> Result<Statement> {
         let online_sql = r#"
         select 

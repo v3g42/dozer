@@ -363,7 +363,7 @@ impl Connector {
             let connection = self.connection.clone();
             let ingestor = ingestor.clone();
             std::thread::spawn(move || {
-                replicate::log_miner_loop(&connection, start_scn, con_id, config, sender, &ingestor)
+                replicate::log_miner_loop(connection, start_scn, con_id, config, sender, &ingestor)
             })
         };
 
