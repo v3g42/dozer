@@ -55,7 +55,7 @@ impl LogCollector {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct Logs {
     logs: Vec<ArchivedLog>,
     sequences: HashSet<u32>,

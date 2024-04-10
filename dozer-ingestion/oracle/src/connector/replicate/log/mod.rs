@@ -156,14 +156,15 @@ fn log_reader_loop(
     ingestor: &Ingestor,
 ) -> Result<()> {
     let log_collector = LogCollector::new(connection.clone());
-    let mut logs = log_collector.get_logs(start_scn)?;
-    add_logfiles(connection.as_ref(), &logs)?;
+    let mut logs = Arc::new(log_collector.get_logs(start_scn)?);
+    add_logfiles(&connection, logs.clone()).unwrap();
     // let logminer_session_mutex = Arc::new(Mutex::new(0));
     let (work_sender, work_receiver) = crossbeam_channel::bounded::<LogminerTask>(100);
     for _ in 0..4 {
         let work_receiver = work_receiver.clone();
         // let logminer_session_mutex = logminer_session_mutex.clone();
         let connect_config = connect_config.clone();
+        let logs = logs.clone();
         std::thread::spawn(move || {
             'outer: for LogminerTask {
                 start_scn,
@@ -177,6 +178,7 @@ fn log_reader_loop(
                     connect_config.connect_string.clone(),
                 )
                 .unwrap();
+                add_logfiles(&connection, logs.clone()).unwrap();
                 let rows = {
                     // let _guard = logminer_session_mutex.lock();
                     let rows = do_log_mining(
@@ -251,11 +253,11 @@ fn log_reader_loop(
         }
         std::thread::sleep(Duration::from_millis(config.poll_interval_in_milliseconds));
 
-        let new_logs = ora_try!(
+        let new_logs = Arc::new(ora_try!(
             ingestor,
             log_collector.get_logs(start_scn),
             "Error listing logs: {0}"
-        );
+        ));
 
         if new_logs != logs {
             // We end the session here to do some clean up to avoid very
@@ -264,7 +266,7 @@ fn log_reader_loop(
             loop {
                 ora_try!(
                     ingestor,
-                    add_logfiles(connection.as_ref(), &new_logs),
+                    add_logfiles(connection.as_ref(), new_logs.clone()),
                     "Error adding log files: {}"
                 );
                 break;

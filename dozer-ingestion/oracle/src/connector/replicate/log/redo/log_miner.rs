@@ -11,11 +11,14 @@ pub(crate) struct LogMinerSession<'a> {
 
 pub(crate) struct AddedLogfiles;
 
-pub(crate) fn add_logfiles(connection: &Connection, files: &Logs) -> Result<AddedLogfiles> {
+pub(crate) fn add_logfiles(
+    connection: &Connection,
+    files: std::sync::Arc<Logs>,
+) -> Result<AddedLogfiles> {
     let sql =
         "BEGIN DBMS_LOGMNR.ADD_LOGFILE(LOGFILENAME => :name, OPTIONS => DBMS_LOGMNR.ADDFILE); END;";
     let mut batch = connection.batch(sql, 100).build()?;
-    for file in files {
+    for file in files.as_ref() {
         batch.append_row(&[&file.name])?;
     }
     batch.execute()?;
